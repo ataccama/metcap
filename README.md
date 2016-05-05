@@ -1,2 +1,3 @@
-# sensu-influxdb-capacitor
-InfluxDB metrics processor for Sensu monitoring platform
+# Influx Capacitor
+
+InfluxDB metrics processor (mainly) for Sensu monitoring platform.

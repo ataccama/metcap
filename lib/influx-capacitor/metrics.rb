@@ -5,7 +5,7 @@ module InfluxCapacitor
 
     def initialize data
       begin
-        @metrics = JSON.load(data).map(&InfluxCapacitor::Metric.new)
+        @metrics = Marshal::load(data).map(&InfluxCapacitor::Metric.new)
         true
       rescue StandardError => e
         @metrics = []
