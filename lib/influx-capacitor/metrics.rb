@@ -1,7 +1,6 @@
 module InfluxCapacitor
   class Metrics < Array
     attr_reader :metrics
-    attr_reader
 
     def initialize data
       begin
@@ -11,6 +10,12 @@ module InfluxCapacitor
         @metrics = []
         false
       end
+    end
+
+    def bulks! (n=5000, &block)
+      bulk = self.metrics
+      bulks.slice(0, n).call(&block)
+      # TODO
     end
 
     def to_influx

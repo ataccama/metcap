@@ -16,14 +16,20 @@ module InfluxCapacitor
         syslog: false,
         debug: false,
         redis: {
-          host: '127.0.0.1'
+          host: '127.0.0.1',
           port: 6379,
           db: 0
-        }
+        },
         influx: {
-          host: '127.0.0.1'
-          port:
-        }
+          ssl: false,
+          host: '127.0.0.1',
+          port: 8086,
+          path: '',
+          db: 'metrics',
+          timeout: 10,
+          retry: 3,
+          connections: 16
+        },
         concurrency: 16,
         sidekiq_path: `/bin/which sidekiq`.to_s
       }
@@ -56,6 +62,16 @@ module InfluxCapacitor
 
     def redis_url
       "redis://#{self._cfg.redis[:host]}:#{self._cfg.redis[:port].to_s}/#{self._cfg.redis[:db].to_s}"
+    end
+
+    def influx_url
+      [ self._cfg.influx[:ssl] ? 'https://' : 'http://',
+        self._cfg.influx[:host],
+        self._cfg.influx[:port].to_s,
+        self._cfg.influx[:path],
+        "/write?db=",
+        self._cfg.influx[:db]
+      ].join
     end
 
     def worker_path
