@@ -11,7 +11,7 @@ module InfluxCapacitor
     sidekiq_options retry: true
     sidekiq_options queue: 'metrics'
 
-    INFLUX = ConnectioPool.new(size: Config.influx[:connections]) do
+    INFLUX = ConnectionPool.new(size: Config.influx[:connections]) do
       Excon.new Config.influx_url,
         persistent: true,
         expects: [204],
@@ -25,18 +25,11 @@ module InfluxCapacitor
     end
 
     def process *args
-      # parse data
-      begin
-        influx_data = Metrics.new(args).to_influx
-      rescue StandardError => e
-      end
-
-      # write data
-      begin
-        INFLUX.with { |i| i.post body: influx_data }
-      rescue StandardError => e
+      Metrics.new(args[0]).proc_by_slices!(Config.influx[:slices]) do |metrics|
+        INFLUX.with do |influx|
+          influx.request body: metrics.to_influx
+        end
       end
     end
-
   end
 end

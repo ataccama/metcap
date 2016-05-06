@@ -27,6 +27,7 @@ module InfluxCapacitor
           path: '',
           db: 'metrics',
           timeout: 10,
+          slice: 1000,
           retry: 3,
           connections: 16
         },
