@@ -2,7 +2,7 @@ module Sensu
   module Plugin
     module Metric
       module CLI
-        class InfluxCapacitor
+        class MetricsCapacitor
           def initialize
           end
 

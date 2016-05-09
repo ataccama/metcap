@@ -5,7 +5,7 @@ require 'log4r'
 require 'log4r/configurator'
 require 'log4r/outputter/syslogoutputter'
 
-module InfluxCapacitor
+module MetricsCapacitor
   module Config
 
     extend self
@@ -15,6 +15,9 @@ module InfluxCapacitor
       @_cfg = {
         syslog: false,
         debug: false,
+        concurrency: 16,
+        storage_engine: :elastic,
+        sidekiq_path: `/bin/which sidekiq`.to_s,
         redis: {
           host: '127.0.0.1',
           port: 6379,
@@ -29,10 +32,20 @@ module InfluxCapacitor
           timeout: 10,
           slice: 1000,
           retry: 3,
-          connections: 16
+          connections: 4
         },
-        concurrency: 16,
-        sidekiq_path: `/bin/which sidekiq`.to_s
+        elastic: {
+          ssl: false,
+          host: '127.0.0.1',
+          port: 9200,
+          path: '',
+          index: 'metrics',
+          type: 'fresh',
+          timeout: 10,
+          slice: 5000,
+          retry: 3,
+          connections: 4
+        }
       }
       begin
         @_cfg = self._cfg.deep_merge YAML.load_file('/etc/influx-capacitor.yaml')
@@ -68,10 +81,21 @@ module InfluxCapacitor
     def influx_url
       [ self._cfg.influx[:ssl] ? 'https://' : 'http://',
         self._cfg.influx[:host],
+        ':',
         self._cfg.influx[:port].to_s,
         self._cfg.influx[:path],
         "/write?db=",
         self._cfg.influx[:db]
+      ].join
+    end
+
+    def es_url
+      [ 'http://',
+        self._cfg.elastic[:host],
+        self._cfg.elastic[:port],
+        self._cfg.elastic[:path],
+        '/',
+        self._cfg.elastic[:index],
       ].join
     end
 
