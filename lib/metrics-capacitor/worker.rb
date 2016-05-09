@@ -1,12 +1,49 @@
+require 'bundler/setup'
+require 'rubygems'
 require 'excon'
-require 'metrics-capacitor/config'
+require 'sidekiq'
+require 'sidekiq/logging'
+require 'syslog'
+require 'log4r'
+require 'log4r/configurator'
+require 'log4r/outputter/syslogoutputter'
+require 'metrics-capacitor'
 require 'metrics-capacitor/metrics'
 
 MetricsCapacitor::Config.load!
-MetricsCapacitor::Config.sidekiq_server_init!
-MetricsCapacitor::Config.sidekiq_client_init!
+
+Sidekiq.configure_server do |config|
+  config.redis = { url: MetricsCapacitor::Config.redis_url }
+  Sidekiq::Logging.logger = Log4r::Logger.new 'sidekiq'
+  Sidekiq::Logging.logger.outputters = MetricsCapacitor::Config.syslog ? Log4r::SyslogOutputter.new('sidekiq', ident: 'metrics-capacitor') : Log4r::Outputter.stdout
+  Sidekiq::Logging.logger.level = Log4r::INFO
+end
+
+Sidekiq.configure_client do |config|
+  config.redis = { url: MetricsCapacitor.redis_url }
+end
+
 
 module MetricsCapacitor
+  module InfluxProcessor
+    def process *args
+      Metrics.new(args[0]).proc_by_slices!(Config.influx[:slices]) do |metrics|
+        CONN.with { |influx| influx.request body: metrics.to_influx }
+      end
+    end
+  end
+
+  module ESProcessor
+    def process *args
+      Metrics.new(args[0]).proc_by_slices!(Config.elastic[:slices]) do |metrics|
+        CONN.with do |es|
+          es.bulk index: Config.elastic[:index], type: Config.elastic[:type], body: metrics.to_elastic, fields: ''
+        end
+      end
+    end
+  end
+
+
   class Worker
     include Sidekiq::Worker
     sidekiq_options retry: true
@@ -29,7 +66,7 @@ module MetricsCapacitor
               tcp_nodelay: true
           }
       end
-      include ESProcessor
+      include MetricsCapacitor::ESProcessor
     when :influx
       CONN = ConnectionPool.new(size: Config.influx[:connections]) do
         Excon.new Config.influx_url,
@@ -43,27 +80,9 @@ module MetricsCapacitor
           retry_limit: Config.influx[:retry],
           tcp_nodelay: true
       end
-      include InfluxProcessor
+      include MetricsCapacitor::InfluxProcessor
     end
 
-  end
-
-  class InfluxProcessor
-    def process *args
-      Metrics.new(args[0]).proc_by_slices!(Config.influx[:slices]) do |metrics|
-        CONN.with { |influx| influx.request body: metrics.to_influx }
-      end
-    end
-  end
-
-  class ESProcessor
-    def process *args
-      Metrics.new(args[0]).proc_by_slices!(Config.elastic[:slices]) do |metrics|
-        CONN.with do |es|
-          es.bulk index: Config.elastic[:index], type: Config.elastic[:type], body: metrics.to_elastic, fields: ''
-        end
-      end
-    end
   end
 
 end

@@ -17,7 +17,7 @@ module MetricsCapacitor
         debug: false,
         concurrency: 16,
         storage_engine: :elastic,
-        sidekiq_path: `/bin/which sidekiq`.to_s,
+        sidekiq_path: `/bin/which sidekiq`.chomp.to_s,
         redis: {
           host: '127.0.0.1',
           port: 6379,
@@ -48,26 +48,8 @@ module MetricsCapacitor
         }
       }
       begin
-        @_cfg = self._cfg.deep_merge YAML.load_file('/etc/influx-capacitor.yaml')
-      rescue StandardError => e
-        $stderr.puts "Config file load failed:"
-        $stderr.puts e.message
-        $stderr.puts "using defaults"
-      end
-    end
-
-    def sidekiq_client_init!
-      Sidekiq.configure_client do |config|
-        config.redis = { url: self.redis_url }
-      end
-    end
-
-    def sidekiq_server_init!
-      Sidekiq.configure_server do |config|
-        config.redis = { url: self.redis_url }
-        Sidekiq::Logging.logger = Log4r::Logger.new 'sidekiq'
-        Sidekiq::Logging.logger.outputters = self.syslog ? Log4r::SyslogOutputter.new('sidekiq', ident: 'influxdb-capacitor') : Log4r::Outputter.stdout
-        Sidekiq::Logging.logger.level = Log4r::INFO
+        @_cfg = self.deep_merge YAML.load_file('/etc/metrics-capacitor.yaml')
+      rescue
       end
     end
 
@@ -75,32 +57,32 @@ module MetricsCapacitor
     end
 
     def redis_url
-      "redis://#{self._cfg.redis[:host]}:#{self._cfg.redis[:port].to_s}/#{self._cfg.redis[:db].to_s}"
+      "redis://#{self.redis[:host]}:#{self.redis[:port].to_s}/#{self.redis[:db].to_s}"
     end
 
     def influx_url
-      [ self._cfg.influx[:ssl] ? 'https://' : 'http://',
-        self._cfg.influx[:host],
+      [ self.influx[:ssl] ? 'https://' : 'http://',
+        self.influx[:host],
         ':',
-        self._cfg.influx[:port].to_s,
-        self._cfg.influx[:path],
+        self.influx[:port].to_s,
+        self.influx[:path],
         "/write?db=",
-        self._cfg.influx[:db]
+        self.influx[:db]
       ].join
     end
 
     def es_url
       [ 'http://',
-        self._cfg.elastic[:host],
-        self._cfg.elastic[:port],
-        self._cfg.elastic[:path],
+        self.elastic[:host],
+        self.elastic[:port],
+        self.elastic[:path],
         '/',
-        self._cfg.elastic[:index],
+        self.elastic[:index],
       ].join
     end
 
     def worker_path
-      File.expand_path('..', __FILE__) + 'worker.rb'
+      File.expand_path('..', __FILE__) + '/worker.rb'
     end
 
     def method_missing (name, *args, &block)

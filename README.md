@@ -4,7 +4,7 @@
 
 ## Prerequisities
 
-* Ruby >= 1.9.3
+* Ruby >= 2.0.0
 * Sensu monitoring framework
 * Metrics database (one of)
   1. ElasticSearch
