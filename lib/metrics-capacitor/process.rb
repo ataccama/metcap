@@ -20,7 +20,7 @@ module MetricsCapacitor
 
       def run_sidekiq(*args)
         Process.fork do
-          %w(INT TERM KILL).each do |sig| Signal.trap(sig) { exit 0 } }
+          %w(INT TERM KILL).each { |sig| Signal.trap(sig) { exit 0 } }
           $0 = "metrics-capacitor [sidekiq]"
         end
       end
