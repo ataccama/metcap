@@ -3,6 +3,7 @@
 
 source 'https://rubygems.org'
 
+gem 'msgpack'
 gem 'sidekiq'
 gem 'thor'
 gem 'log4r'

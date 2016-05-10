@@ -1,4 +1,5 @@
 require 'forwardable'
+require 'msgpack'
 
 module MetricsCapacitor
   class Metrics
@@ -8,7 +9,7 @@ module MetricsCapacitor
 
     def initialize(data)
       @metrics = data.map { |m| MetricsCapacitor::Metric.new(m) } if data.class == Array
-      @metrics ||= Marshal.load(data).map { |m| MetricsCapacitor::Metric.new(m) }
+      @metrics ||= MsgPack.unpack(data).map { |m| MetricsCapacitor::Metric.new(m) }
     rescue StandardError => e
       $stderr.puts e.message
       return nil
@@ -25,6 +26,10 @@ module MetricsCapacitor
     def to_elastic
       @metrics.map(&:to_elastic)
     end
+
+    def to_redis
+      @metrics.map(&:to_redis)
+    end
   end
 
   class Metric
@@ -33,7 +38,8 @@ module MetricsCapacitor
     def_delegators :@metric, :[], :[]=, :merge, :map
 
     def initialize(data)
-      @metric = data
+      @metric = data if data.class == Hash
+      @metric ||= MsgPack.unpack(data)
     end
 
     def to_influx
@@ -54,6 +60,10 @@ module MetricsCapacitor
           }
         }
       }
+    end
+
+    def to_redis
+      @metric.to_msgpack
     end
 
     def name
