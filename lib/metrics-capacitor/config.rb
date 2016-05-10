@@ -77,7 +77,7 @@ module MetricsCapacitor
     end
 
     def worker_path
-      File.expand_path('..', __FILE__) + '/processor.rb'
+      File.expand_path('..', __FILE__) + '.rb'
     end
 
     def method_missing (name, *args, &block)
