@@ -1,4 +1,5 @@
 require 'thor'
+require_relative 'config'
 
 module MetricsCapacitor
   class CLI < Thor
