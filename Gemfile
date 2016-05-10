@@ -3,7 +3,6 @@
 
 source 'https://rubygems.org'
 
-gem 'metrics-capacitor'
 gem 'sidekiq'
 gem 'thor'
 gem 'log4r'

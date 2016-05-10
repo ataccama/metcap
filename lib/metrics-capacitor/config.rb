@@ -1,9 +1,10 @@
-require 'sidekiq'
-require 'sidekiq/logging'
-require 'syslog'
-require 'log4r'
-require 'log4r/configurator'
-require 'log4r/outputter/syslogoutputter'
+require 'yaml'
+class ::Hash
+  def deep_merge(second)
+    merger = proc { |key, v1, v2| Hash === v1 && Hash === v2 ? v1.merge(v2, &merger) : v2 }
+    self.merge(second, &merger)
+  end
+end
 
 module MetricsCapacitor
   module Config
@@ -47,13 +48,7 @@ module MetricsCapacitor
           connections: 4
         }
       }
-      begin
-        @_cfg = self.deep_merge YAML.load_file('/etc/metrics-capacitor.yaml')
-      rescue
-      end
-    end
-
-    def deep_merge
+      @_cfg = @_cfg.deep_merge YAML.load_file('/etc/metrics-capacitor.yaml') if File.exists? '/etc/metrics-capacitor.yaml'
     end
 
     def redis_url
@@ -71,7 +66,7 @@ module MetricsCapacitor
       ].join
     end
 
-    def es_url
+    def elastic_url
       [ 'http://',
         self.elastic[:host],
         self.elastic[:port],
@@ -82,7 +77,7 @@ module MetricsCapacitor
     end
 
     def worker_path
-      File.expand_path('..', __FILE__) + '/worker.rb'
+      File.expand_path('..', __FILE__) + '/processor.rb'
     end
 
     def method_missing (name, *args, &block)

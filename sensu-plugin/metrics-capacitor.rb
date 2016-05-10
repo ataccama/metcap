@@ -6,6 +6,8 @@ module Sensu
           def initialize
           end
 
+          def output
+
           def ok
           end
 
