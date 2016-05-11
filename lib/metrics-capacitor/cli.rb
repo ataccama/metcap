@@ -1,19 +1,17 @@
 require 'thor'
-require_relative 'config'
+require_relative 'process'
 
 module MetricsCapacitor
   class CLI < Thor
-    include MetricsCapacitor::Process
-
-    Config.load!
-
     package_name 'Metrics Capacitor'
 
-    desc 'daemon', 'Run the workers'
-    option :concurrency, type: :numeric, default: Config.concurrency, aliases: :c
-    def daemon
-      cmd = [ Config.sidekiq_path, '-c', options[:concurrency].to_s, '-r', Config.worker_path ]
-      system *cmd
+    desc 'engine', 'Start the engine :-)'
+    def engine
+      p = Engine.instance
+      p.run_scrubber!
+      p.run_writer!
+      p.run_aggregator!
+      p.wait
     end
 
     desc 'status', 'Report the state'

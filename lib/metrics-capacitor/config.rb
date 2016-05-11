@@ -16,64 +16,35 @@ module MetricsCapacitor
       @_cfg = {
         syslog: false,
         debug: false,
-        concurrency: 16,
-        storage_engine: :elastic,
-        sidekiq_path: `/bin/which sidekiq`.chomp.to_s,
         redis: {
-          host: '127.0.0.1',
-          port: 6379,
-          db: 0
+          url: 'redis://127.0.0.1:6379/0'
         },
-        influx: {
-          ssl: false,
-          host: '127.0.0.1',
-          port: 8086,
-          path: '',
-          db: 'metrics',
-          timeout: 10,
-          slice: 1000,
-          retry: 3,
-          connections: 4
-        },
-        elastic: {
-          ssl: false,
-          host: '127.0.0.1',
-          port: 9200,
-          path: '',
+        elasticsearch: {
+          urls: ['http://localhost:9200/'],
           index: 'metrics',
-          type: 'fresh',
           timeout: 10,
-          slice: 5000,
+        },
+        scrubber: {
+          threads: 16,
+          processes: 4,
           retry: 3,
-          connections: 4
+          tags: {}
+        },
+        writer: {
+          processes: 2,
+          doc_type: 'actual',
+          bulk_max: 1000,
+          bulk_wait: 15,
+          retry: true
+        },
+        aggregator: {
+          doc_type: 'aggregated',
+          aggregate_by: 600, # seconds
+          optimize_indexes: true,
+          expunge_after: 2678400 # 31 days
         }
       }
       @_cfg = @_cfg.deep_merge YAML.load_file('/etc/metrics-capacitor.yaml') if File.exists? '/etc/metrics-capacitor.yaml'
-    end
-
-    def redis_url
-      "redis://#{self.redis[:host]}:#{self.redis[:port].to_s}/#{self.redis[:db].to_s}"
-    end
-
-    def influx_url
-      [ self.influx[:ssl] ? 'https://' : 'http://',
-        self.influx[:host],
-        ':',
-        self.influx[:port].to_s,
-        self.influx[:path],
-        "/write?db=",
-        self.influx[:db]
-      ].join
-    end
-
-    def elastic_url
-      [ 'http://',
-        self.elastic[:host],
-        self.elastic[:port],
-        self.elastic[:path],
-        '/',
-        self.elastic[:index],
-      ].join
     end
 
     def worker_path

@@ -6,9 +6,7 @@
 
 * Ruby >= 2.0.0
 * Sensu monitoring framework
-* Metrics database (one of)
-  1. ElasticSearch
-  2. InfluxDB
+* ElasticSearch >= 2.0
 * (Optional) Separate Redis for metrics bufferring. *Of course, you can use the same as Sensu, but when it fills-up with data, you monitoring will turn wacko...*
 
 ## Install
@@ -61,12 +59,12 @@ Any value can be overloaded in ```/etc/metrics-capacitor.yaml```.
 
 ### Sensu Clients
 
-
+*TODO*
 
 ## Use
 
 ### Service
-You can start the service from command-line by running ```metrics-capacitor run```, or you can use this simple config for Upstart:
+You can start the service from command-line by running ```metrics-capacitor service start```, or you can use this simple config for Upstart:
 
 ```
 description 'Metrics Capacitor'
@@ -85,6 +83,10 @@ Same rules apply as for Graphite Sensu plugins. There are a few differrences:
 1. The Class to inherit from is ```Sensu::Plugin::Metric::CLI::MetricsCapacitor```
 2. The ```-s```/```--scheme``` parameter does not apply any more. Use ```-T <field>=<value>``` to tag you data points. You can specify this parameter multiple times.
 3. The resulting data does not flow into Sensu itself. Sensu only gets result regarding (un)successful execution of the plugin
+
+### Reusing existing Graphite plugins
+
+*TODO*
 
 ### Limitations
 

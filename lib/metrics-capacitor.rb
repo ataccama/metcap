@@ -4,22 +4,30 @@ require_relative 'metrics-capacitor/sidekiq'
 module MetricsCapacitor
   require_relative 'metrics-capacitor/model'
   require_relative 'metrics-capacitor/processors/scrubber'
-  require_relative 'metrics-capacitor/processors/' + Config.storage_engine.to_s
+  require_relative 'metrics-capacitor/processors/writer'
+  require_relative 'metrics-capacitor/processors/aggregator'
+
 
   # for metrics scrubbing
   # implemented as a Sidekiq job
   #
-  class Anode
+  class Scrubber
     include Sidekiq::Worker
     include Processors::Scrubber
     sidekiq_options retry: true
-    sidekiq_options queue: 'metrics'
+    sidekiq_options queue: 'scrubber'
   end
 
   # metrics data writer
   #
-  class Cathode
-    include Kernel.const_get "Processors::#{Config.storage_engine.to_s.capitalize}"
+  class Writer
+    include Processors::Writer
+  end
+
+  # metrics data aggregator
+  #
+  class Writer
+    include Processors::Aggregator
   end
 
   # proof of concept worker
@@ -27,7 +35,7 @@ module MetricsCapacitor
   #
   class Worker
     include Sidekiq::Worker
-    include Kernel.const_get "Processors::#{Config.storage_engine.to_s.capitalize}"
+    include Processors::Elastic
     sidekiq_options retry: true
     sidekiq_options queue: 'metrics'
   end
