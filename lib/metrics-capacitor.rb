@@ -2,15 +2,6 @@ require_relative 'metrics-capacitor/config'
 require_relative 'metrics-capacitor/sidekiq'
 
 module MetricsCapacitor
-  require_relative 'metrics-capacitor/model'
-  require_relative 'metrics-capacitor/processors/scrubber'
-  require_relative 'metrics-capacitor/processors/writer'
-  require_relative 'metrics-capacitor/processors/aggregator'
-
-
-  # for metrics scrubbing
-  # implemented as a Sidekiq job
-  #
   class Scrubber
     include Sidekiq::Worker
     include Processors::Scrubber
@@ -26,7 +17,7 @@ module MetricsCapacitor
 
   # metrics data aggregator
   #
-  class Writer
+  class Aggregator
     include Processors::Aggregator
   end
 

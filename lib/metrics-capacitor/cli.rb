@@ -1,5 +1,5 @@
 require 'thor'
-require_relative 'process'
+require_relative 'engine'
 
 module MetricsCapacitor
   class CLI < Thor
@@ -14,10 +14,25 @@ module MetricsCapacitor
       p.wait
     end
 
-    desc 'status', 'Report the state'
+    desc 'status', 'Report the state (TODO)'
     def status
-      Config.sidekiq_init_client!
       # TODO ...
     end
+
+    desc 'aggregate', 'Manually trigger aggregator run (TODO)'
+    def aggregate
+      # TODO ...
+    end
+
+    desc 'expunge', 'Expunge old data (TODO)'
+    def expunge
+      # TODO ...
+    end
+
+    desc 'optimize', 'Optimize ElasticSearch indices (TODO)'
+    def optimize
+      # TODO ...
+    end
+
   end
 end
