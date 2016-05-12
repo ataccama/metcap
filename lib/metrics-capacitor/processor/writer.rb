@@ -23,17 +23,14 @@ module MetricsCapacitor
         until @exit
           logger.debug "Gathering mertics bulk"
           @metrics = Metrics.new([])
-          t = Thread.new do
-            while result = @redis.blpop('writer', timeout: Config.writer[:bulk_wait])
-              @metrics << Metric.new(result)
-            end
+          while result = @redis.blpop('writer', timeout: Config.writer[:bulk_wait])
+            @metrics << Metric.new(result[1])
           end
-          t.join
 
           if @metrics.empty?
             logger.warn 'No metrics gathered'
           else
-            logger.debug "Preparing to write #{@metrics.length} metrics"
+            logger.info "Preparing to write #{@metrics.length} metrics"
             @elastic.bulk(
               index: Config.elasticsearch[:index],
               type: Config.writer[:doc_type],

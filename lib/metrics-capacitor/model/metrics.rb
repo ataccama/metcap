@@ -3,7 +3,7 @@ module MetricsCapacitor
     class Metrics
       extend Forwardable
 
-      def_delegators :@metrics, :slice, :slice!, :map, :each, :empty?, :length
+      def_delegators :@metrics, :slice, :slice!, :map, :each, :empty?, :length, :<<
 
       def initialize(data)
         @metrics = data.map { |m| MetricsCapacitor::Metric.new(m) } if data.class == Array

@@ -1,8 +1,6 @@
 module MetricsCapacitor
   module Processor
     class Core
-      require 'timeout'
-
       include MetricsCapacitor::Model
 
       def initialize(logpipe)
@@ -15,14 +13,16 @@ module MetricsCapacitor
         post_init
       end
 
+      # implement in the processor Class
       def post_init
-        # implement in the processor Class
       end
 
+      # implement in the processor Class
       def process
-        loop { logger.info "alive"; sleep 10 }
+        loop { logger.debug "alive"; sleep 10 }
       end
 
+      # implement in the processor Class
       def shutdown
         exit 1
       end
@@ -32,14 +32,18 @@ module MetricsCapacitor
       end
 
       def start!
+        logger.info "Starting processor"
         begin
           process
         rescue StandardError => e
-          logger.error e.message
-          logger.error e.backtrace
+          logger.fatal 'SHUTTING DOWN DUE TO AN EXCEPTION!'
+          logger.fatal [e.class, e.message].join(' -> ')
+          logger.fatal e.backtrace
+          logger.fatal 'Sending SIGINT to the engine'
           Process.kill('INT', Process.ppid)
           shutdown!
         end
+        logger.info "Processor finished"
       end
 
       def shutdown!

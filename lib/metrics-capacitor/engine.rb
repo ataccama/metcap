@@ -17,28 +17,31 @@ module MetricsCapacitor
 
     def initialize
       $0 = 'metrics-capacitor (engine)'
+      Config.load!
       @exit_flag = false
       @pids = []
       %w(TERM INT).each do |sig|
-        # Signal.trap(sig) { @pids.each { |pid| Process.kill(sig, pid) } }
-        Signal.trap(sig) { @pids.each { |pid| Process.kill(sig, pid) rescue true }; Process.waitall; terminate_loggers }
+        Signal.trap(sig) do
+          @pids.each { |pid| Process.kill(sig, pid) rescue true }
+          Process.waitall
+          terminate_loggers
+        end
       end
       @logpipe = {}
       @logger = ::Logger.new(STDOUT)
-      @logger.level = ::Logger::DEBUG
+      @logger.level = log_level
       @logger.formatter = proc { |severity, datetime, progname, msg| [datetime.to_s, progname, severity, "#{msg}\n"].join(" ") }
       @logger_threads = []
       @logger_semaphore = Mutex.new
-      Config.load!
       # Logger.init!
       log :info, "Initialized :-)"
     end
 
     def fork_processor(args = {})
+      log :debug, "Spawning #{args[:name]}"
       args[:proc_num] ||= 1
       args[:exit_on] ||= %w{INT TERM}
       args[:proc_num].times do |num|
-        log :debug, "Spawning processor #{args[:name]}"
         @logpipe["#{args[:name]}_#{num}".to_sym], logpipe = IO.pipe
         @pids << Process.fork do
           $0 = "metrics-capacitor (#{args[:name]})" if args[:name]
@@ -50,10 +53,12 @@ module MetricsCapacitor
         end
         log :debug, "Processor #{args[:name]} spawned as PID #{@pids.last.to_s}"
         logpipe.close
+        sleep 1
       end
     end
 
     def fork_scrubber
+      log :debug, "Spawning scrubbers"
       Config.scrubber[:processes].times do |num|
         @logpipe["scrubber_#{num}".to_sym], logpipe = IO.pipe
         @pids << Process.fork do
@@ -61,7 +66,7 @@ module MetricsCapacitor
           remove_instance_variable(:@logpipe)
           Sidekiq.configure_server do |config|
             Sidekiq::Logging.logger = ::Logger.new(logpipe)
-            Sidekiq::Logging.logger.level = ::Logger::DEBUG
+            Sidekiq::Logging.logger.level = log_level
             Sidekiq::Logging.logger.progname = "scrubber"
             Sidekiq::Logging.logger.formatter = proc { |severity, datetime, progname, msg| "#{progname}##{Process.pid}|||#{severity}|||#{msg}\n" }
             config.redis = { url: Config.redis[:url] }
@@ -85,6 +90,10 @@ module MetricsCapacitor
       end
     end
 
+    def log_level
+      Config.debug ? ::Logger::DEBUG : ::Logger::INFO
+    end
+
     def spawn_loggers
       @logpipe.each do |name, pipe|
         @logger_threads << Thread.new do
@@ -105,6 +114,7 @@ module MetricsCapacitor
     end
 
     def run!
+      log :info, 'Spawning processes'
       fork_scrubber
       fork_processor name: 'writer', proc_num: Config.writer[:processes]
       fork_processor name: 'aggregator'
@@ -116,7 +126,9 @@ module MetricsCapacitor
       rescue Interrupt
         retry
       end
+      log :info, "Terminating loggers"
       terminate_loggers
+      log :warn, "Engine is shutting down!"
     end
 
 
