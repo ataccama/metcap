@@ -1,7 +1,6 @@
 require 'sidekiq'
 require 'sidekiq/cli'
 require 'sidekiq/logging'
-require 'syslog'
 require 'log4r'
 require 'log4r/configurator'
 require 'log4r/outputter/syslogoutputter'
@@ -12,12 +11,9 @@ module Sidekiq
     PROCTITLES[0] = proc { 'metrics-capacitor'.freeze }
     PROCTITLES[1] = proc { '(scrubber)'.freeze }
 
-    def run(*args)
+    def run
       @code = nil
-      setup_options(args)
-      initialize_logger
-      validate!
-      write_pid
+
       boot_system
 
       self_read, self_write = IO.pipe
@@ -60,13 +56,13 @@ module MetricsCapacitor
   Config.load!
 
   Sidekiq.configure_server do |config|
-    config.redis = { url: Config.redis_url }
     Sidekiq::Logging.logger = Log4r::Logger.new 'sidekiq'
     Sidekiq::Logging.logger.outputters = Config.syslog ? Log4r::SyslogOutputter.new('sidekiq', ident: 'metrics-capacitor') : Log4r::Outputter.stdout
     Sidekiq::Logging.logger.level = Log4r::INFO
+    config.redis = { url: Config.redis[:url] }
   end
   Sidekiq.configure_client do |config|
-    config.redis = { url: Config.redis_url }
+    config.redis = { url: Config.redis[:url] }
   end
 
 end

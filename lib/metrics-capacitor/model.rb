@@ -1,2 +1,5 @@
-require_relative 'model/metric'
-require_relative 'model/metrics'
+require 'msgpack'
+module MetricsCapacitor
+  require_relative 'model/metric'
+  require_relative 'model/metrics'
+end

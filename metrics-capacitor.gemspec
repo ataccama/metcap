@@ -5,7 +5,7 @@ Gem::Specification.new do |s|
   s.summary               = "Metrics Capacitor"
   s.description           = "Sidekiq worker for crunching metrics data (mainly gathered by Sensu) into Metrics DB"
   s.authors               = ["Radek 'blufor' Slavicinsky"]
-  s.email                 = 'radek.slavicinsky@gmail.com'
+  s.email                 = 'devops@prozeta.eu'
   s.files                 = Dir['lib/**/*.rb']
   s.executables           = Dir['bin/*'].map(){ |f| f.split('/').last }
   s.homepage              = 'https://github.com/prozeta/metrics-capacitor'

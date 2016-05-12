@@ -2,12 +2,15 @@
 
 > Metrics processing framework for (but not limited to) Sensu
 
+*This project is currently under active development. That means it doesn't work properly... **YET** :)*
+
 ## Prerequisities
 
 * Ruby >= 2.0.0
 * Sensu monitoring framework
 * ElasticSearch >= 2.0
-* (Optional) Separate Redis for metrics bufferring. *Of course, you can use the same as Sensu, but when it fills-up with data, you monitoring will turn wacko...*
+* Redis >= 2.8
+  * (Optional) *Separate Redis for metrics bufferring. Of course, you can use the same as Sensu, but when it fills-up with data, you monitoring will turn wacko...*
 
 ## Install
 
@@ -76,7 +79,7 @@ console log
 exec metrics-capacitor run
 ```
 
-### Writing Sensu plugins
+### Writing Sensu metric plugins
 
 Same rules apply as for Graphite Sensu plugins. There are a few differrences:
 
@@ -88,6 +91,8 @@ Same rules apply as for Graphite Sensu plugins. There are a few differrences:
 
 *TODO*
 
-### Limitations
+
+
+## Limitations
 
 *TODO*

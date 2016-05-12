@@ -1,5 +1,4 @@
 require 'thor'
-require_relative 'engine'
 
 module MetricsCapacitor
   class CLI < Thor
@@ -7,10 +6,11 @@ module MetricsCapacitor
 
     desc 'engine', 'Start the engine :-)'
     def engine
-      p = Engine.instance
+      require_relative 'engine'
+      p = Engine.new
       p.run_scrubber!
       p.run_writer!
-      p.run_aggregator!
+      # p.run_aggregator!
       p.wait
     end
 

@@ -15,7 +15,7 @@ module MetricsCapacitor
     def load!
       @_cfg = {
         syslog: false,
-        debug: false,
+        debug: true,
         redis: {
           url: 'redis://127.0.0.1:6379/0'
         },
@@ -26,9 +26,10 @@ module MetricsCapacitor
         },
         scrubber: {
           threads: 16,
-          processes: 4,
+          processes: 1,
           retry: 3,
-          tags: {}
+          tags: {},
+          worker_path: worker_path
         },
         writer: {
           processes: 2,
@@ -48,12 +49,16 @@ module MetricsCapacitor
     end
 
     def worker_path
-      File.expand_path('..', __FILE__) + '.rb'
+      File.expand_path('..', __FILE__) + '/processor/scrubber.rb'
     end
 
     def method_missing (name, *args, &block)
       return @_cfg[name.to_sym] if @_cfg[name.to_sym] != nil
-      fail(NoMethodError, "unknown configuration section #{name}", caller)
+      fail(NoMethodError, "Unknown configuration section Config.#{name}", caller)
+    rescue NoMethodError => e
+      $stderr.puts " ERROR config: #{e.class}: #{e.message}"
+      $stderr.puts " ERROR config: #{e.backtrace.first}"
+      exit! 1
     end
 
   end
