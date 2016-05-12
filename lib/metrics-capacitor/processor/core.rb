@@ -8,6 +8,7 @@ module MetricsCapacitor
         @_logger = ::Logger.new(logpipe)
         @_name = self.class.to_s.split('::').last.downcase
         @_logger.progname = @_name
+        @_logger.level = log_level
         @_logger.formatter = proc { |severity, datetime, progname, msg| "#{progname}##{Process.pid}|||#{severity}|||#{msg}\n" }
         logger.info "Initializing processor"
         post_init
@@ -49,6 +50,12 @@ module MetricsCapacitor
       def shutdown!
         shutdown
       end
+
+      private
+      def log_level
+        Config.debug ? ::Logger::DEBUG : ::Logger::INFO
+      end
+
     end
   end
 end

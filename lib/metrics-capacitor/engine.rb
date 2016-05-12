@@ -20,8 +20,10 @@ module MetricsCapacitor
       Config.load!
       @exit_flag = false
       @pids = []
+      @pids_kiq = []
       %w(TERM INT).each do |sig|
         Signal.trap(sig) do
+          @pids_kiq.each { |pid| Process.kill('INT', pid) rescue true }
           @pids.each { |pid| Process.kill(sig, pid) rescue true }
           Process.waitall
           terminate_loggers
@@ -34,7 +36,7 @@ module MetricsCapacitor
       @logger_threads = []
       @logger_semaphore = Mutex.new
       # Logger.init!
-      log :info, "Initialized :-)"
+      log :info, "Engine warmed-up :-)"
     end
 
     def fork_processor(args = {})
@@ -51,9 +53,9 @@ module MetricsCapacitor
           args[:exit_on].each { |sig| Signal.trap(sig) { p.shutdown! } }
           p.start!
         end
-        log :debug, "Processor #{args[:name]} spawned as PID #{@pids.last.to_s}"
+        log :debug, "#{args[:name].capitalize} spawned as PID #{@pids.last.to_s}"
         logpipe.close
-        sleep 1
+        sleep 0.5
       end
     end
 
@@ -61,7 +63,7 @@ module MetricsCapacitor
       log :debug, "Spawning scrubbers"
       Config.scrubber[:processes].times do |num|
         @logpipe["scrubber_#{num}".to_sym], logpipe = IO.pipe
-        @pids << Process.fork do
+        @pids_kiq << Process.fork do
           @logpipe["scrubber_#{num}".to_sym].close
           remove_instance_variable(:@logpipe)
           Sidekiq.configure_server do |config|
@@ -114,15 +116,17 @@ module MetricsCapacitor
     end
 
     def run!
-      log :info, 'Spawning processes'
+      log :info, 'Engine is starting up'
       fork_scrubber
       fork_processor name: 'writer', proc_num: Config.writer[:processes]
       fork_processor name: 'aggregator'
       fork_processor name: 'listener'
       spawn_loggers
+      log :info, 'Engine has started :-)'
       # TODO: unix socket for control and status reporting ;)
       begin
         ::Process.waitall
+        log :warn, "Terminating!"
       rescue Interrupt
         retry
       end
