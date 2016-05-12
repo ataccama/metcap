@@ -23,6 +23,7 @@ module MetricsCapacitor
           urls: ['http://localhost:9200/'],
           index: 'metrics',
           timeout: 10,
+          connections: 2,
         },
         scrubber: {
           threads: 16,
@@ -56,8 +57,8 @@ module MetricsCapacitor
       return @_cfg[name.to_sym] if @_cfg[name.to_sym] != nil
       fail(NoMethodError, "Unknown configuration section Config.#{name}", caller)
     rescue NoMethodError => e
-      $stderr.puts " ERROR config: #{e.class}: #{e.message}"
-      $stderr.puts " ERROR config: #{e.backtrace.first}"
+      $stderr.puts "ERROR config: #{e.class}: #{e.message}"
+      $stderr.puts e.backtrace.map { |l| "ERROR config: #{l}\n" }.join
       exit! 1
     end
 

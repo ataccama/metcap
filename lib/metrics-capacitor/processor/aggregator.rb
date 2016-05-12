@@ -1,6 +1,6 @@
 module MetricsCapacitor
   module Processor
-    class Aggregator
+    class Aggregator < Core
     end
   end
 end

@@ -7,11 +7,7 @@ module MetricsCapacitor
     desc 'engine', 'Start the engine :-)'
     def engine
       require_relative 'engine'
-      p = Engine.new
-      p.run_scrubber!
-      p.run_writer!
-      # p.run_aggregator!
-      p.wait
+      Engine.new.run!
     end
 
     desc 'status', 'Report the state (TODO)'

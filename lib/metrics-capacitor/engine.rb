@@ -1,7 +1,11 @@
 require 'elasticsearch'
 require 'syslog'
+require 'syslog/logger'
 require_relative 'config'
 require_relative 'sidekiq'
+require_relative 'model'
+require_relative 'logger'
+require_relative 'processor/core'
 require_relative 'processor/writer'
 require_relative 'processor/aggregator'
 require_relative 'processor/listener'
@@ -15,64 +19,104 @@ module MetricsCapacitor
       $0 = 'metrics-capacitor (engine)'
       @exit_flag = false
       @pids = []
+      %w(TERM INT).each do |sig|
+        # Signal.trap(sig) { @pids.each { |pid| Process.kill(sig, pid) } }
+        Signal.trap(sig) { @pids.each { |pid| Process.kill(sig, pid) rescue true }; Process.waitall; terminate_loggers }
+      end
+      @logpipe = {}
+      @logger = ::Logger.new(STDOUT)
+      @logger.level = ::Logger::DEBUG
+      @logger.formatter = proc { |severity, datetime, progname, msg| [datetime.to_s, progname, severity, "#{msg}\n"].join(" ") }
+      @logger_threads = []
+      @logger_semaphore = Mutex.new
       Config.load!
+      # Logger.init!
+      log :info, "Initialized :-)"
     end
 
-    def fork_child(args={}, &block)
+    def fork_processor(args = {})
       args[:proc_num] ||= 1
       args[:exit_on] ||= %w{INT TERM}
       args[:proc_num].times do |num|
+        log :debug, "Spawning processor #{args[:name]}"
+        @logpipe["#{args[:name]}_#{num}".to_sym], logpipe = IO.pipe
         @pids << Process.fork do
-          args[:exit_on].each { |sig| Signal.trap(sig) { shutdown! } }
           $0 = "metrics-capacitor (#{args[:name]})" if args[:name]
-          begin
-            yield block
-          rescue StandardError => e
-            $stderr.puts e.message
-            $stderr.puts e.backtrace.join("\n") if Config.debug
-            sleep 1
-            retry
+          @logpipe["#{args[:name]}_#{num}".to_sym].close
+          remove_instance_variable(:@logpipe)
+          p = Kernel.const_get("MetricsCapacitor::Processor::#{args[:name].capitalize}").new(logpipe)
+          args[:exit_on].each { |sig| Signal.trap(sig) { p.shutdown! } }
+          p.start!
+        end
+        log :debug, "Processor #{args[:name]} spawned as PID #{@pids.last.to_s}"
+        logpipe.close
+      end
+    end
+
+    def fork_scrubber
+      Config.scrubber[:processes].times do |num|
+        @logpipe["scrubber_#{num}".to_sym], logpipe = IO.pipe
+        @pids << Process.fork do
+          @logpipe["scrubber_#{num}".to_sym].close
+          remove_instance_variable(:@logpipe)
+          Sidekiq.configure_server do |config|
+            Sidekiq::Logging.logger = ::Logger.new(logpipe)
+            Sidekiq::Logging.logger.level = ::Logger::DEBUG
+            Sidekiq::Logging.logger.progname = "scrubber"
+            Sidekiq::Logging.logger.formatter = proc { |severity, datetime, progname, msg| "#{progname}##{Process.pid}|||#{severity}|||#{msg}\n" }
+            config.redis = { url: Config.redis[:url] }
+          end
+          Sidekiq.configure_client do |config|
+            config.redis = { url: Config.redis[:url] }
+          end
+          $TESTING = 0
+          kiq = Sidekiq::CLI.instance
+          kiq.parse(['-c', Config.scrubber[:threads].to_s, '-r', Config.scrubber[:worker_path]])
+          kiq.run
+        end
+        logpipe.close
+      end
+    end
+
+    def log(severity = :info, msg)
+      s = Kernel.const_get("Logger::#{severity.to_s.upcase}")
+      @logger_semaphore.synchronize do
+        @logger.log s, msg, 'engine'
+      end
+    end
+
+    def spawn_loggers
+      @logpipe.each do |name, pipe|
+        @logger_threads << Thread.new do
+          Thread.current[:name] = "logger-#{name}"
+          while msg = pipe.gets
+            (progname,severity,message) = msg.split('|||')
+            # $stderr.puts "#{progname} #{severity} #{message}"
+            @logger_semaphore.synchronize do
+              @logger.log Kernel.const_get("Logger::#{severity}"), message.chomp, progname
+            end
           end
         end
       end
     end
 
-    def wait
+    def terminate_loggers
+      @logger_threads.each { |t| t.join }
+    end
+
+    def run!
+      fork_scrubber
+      fork_processor name: 'writer', proc_num: Config.writer[:processes]
+      fork_processor name: 'aggregator'
+      fork_processor name: 'listener'
+      spawn_loggers
       # TODO: unix socket for control and status reporting ;)
       begin
         ::Process.waitall
       rescue Interrupt
         retry
       end
-    end
-
-    def run_scrubber!
-      Config.scrubber[:processes].times do
-        @pids << Process.fork do
-          $TESTING = 0
-          kiq = Sidekiq::CLI.instance
-          kiq.parse(['-c', Config.scrubber[:threads].to_s, '-r', Config.scrubber[:worker_path], '-v'])
-          kiq.run
-        end
-      end
-    end
-
-    def run_writer!
-      fork_child(name: 'writer', proc_num: Config.writer[:processes]) do
-        Processor::Writer.new.run!
-      end
-    end
-
-    def run_aggregator!
-      fork_child(name: 'aggregator') do
-        include Processor::Aggregator
-      end
-    end
-
-    def run_listener!
-      fork_child(name: 'listener') do
-        include Processor::Listener
-      end
+      terminate_loggers
     end
 
 

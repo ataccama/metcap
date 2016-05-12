@@ -1,9 +1,6 @@
 require 'sidekiq'
 require 'sidekiq/cli'
 require 'sidekiq/logging'
-require 'log4r'
-require 'log4r/configurator'
-require 'log4r/outputter/syslogoutputter'
 
 module Sidekiq
   class CLI
@@ -49,20 +46,4 @@ module Sidekiq
       end
     end
   end
-end
-
-module MetricsCapacitor
-
-  Config.load!
-
-  Sidekiq.configure_server do |config|
-    Sidekiq::Logging.logger = Log4r::Logger.new 'sidekiq'
-    Sidekiq::Logging.logger.outputters = Config.syslog ? Log4r::SyslogOutputter.new('sidekiq', ident: 'metrics-capacitor') : Log4r::Outputter.stdout
-    Sidekiq::Logging.logger.level = Log4r::INFO
-    config.redis = { url: Config.redis[:url] }
-  end
-  Sidekiq.configure_client do |config|
-    config.redis = { url: Config.redis[:url] }
-  end
-
 end

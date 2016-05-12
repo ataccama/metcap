@@ -1,22 +1,52 @@
+require 'elasticsearch'
+
 module MetricsCapacitor
   module Processor
-    module Writer
+    class Writer < Core
 
-      ES = ConnectionPool.new(size: MetricsCapacitor::Config.elasticsearch[:connections]) do
-        Elasticsearch::Client.new(url: MetricsCapacitor::Config.elasticsearch[:url], adapter: :excon, reload_connections: 100, retry_on_failure: MetricsCapacitor::Config.elasticsearch[:retry], sniffer_timeout: 5, transport_options: { persistent: true, read_timeout: MetricsCapacitor::Config.elasticsearch[:timeout], write_timeout: MetricsCapacitor::Config.elasticsearch[:timeout], connect_timeout: MetricsCapacitor::Config.elasticsearch[:timeout], tcp_nodelay: true })
+      def post_init
+        @elastic = Elasticsearch::Client.new(
+          url: Config.elasticsearch[:urls],
+          reload_connections: 100,
+          retry_on_failure: Config.elasticsearch[:retry],
+          sniffer_timeout: 5,
+        )
+        logger.debug "Elastic connection set up"
+
+        @redis = Redis.new(url: Config.redis[:url])
+        logger.debug "Redis connection set up"
+
+        @exit = false
       end
 
-      def process *args
-        Metrics.new(args[0]).proc_by_slices!(MetricsCapacitor::Config.elasticsearch[:bulk_max]) do |metrics|
-          ES.with do |es|
-            es.bulk index: MetricsCapacitor::Config.elastic[:index],
-              type: MetricsCapacitor::Config.elastic[:type],
-              body: metrics.to_elastic,
+      def process
+        until @exit
+          logger.debug "Gathering mertics bulk"
+          @metrics = Metrics.new([])
+          t = Thread.new do
+            while result = @redis.blpop('writer', timeout: Config.writer[:bulk_wait])
+              @metrics << Metric.new(result)
+            end
+          end
+          t.join
+
+          if @metrics.empty?
+            logger.warn 'No metrics gathered'
+          else
+            logger.debug "Preparing to write #{@metrics.length} metrics"
+            @elastic.bulk(
+              index: Config.elasticsearch[:index],
+              type: Config.writer[:doc_type],
+              body: @metrics.to_elastic,
               fields: ''
+            )
           end
         end
       end
 
+      def shutdown
+        @exit = true
+      end
     end
   end
 end
