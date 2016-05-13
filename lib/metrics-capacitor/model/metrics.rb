@@ -5,12 +5,9 @@ module MetricsCapacitor
 
       def_delegators :@metrics, :slice, :slice!, :map, :each, :empty?, :length, :<<
 
-      def initialize(data)
-        @metrics = data.map { |m| MetricsCapacitor::Metric.new(m) } if data.class == Array
-        @metrics ||= MessagePack.unpack(data).map { |m| MetricsCapacitor::Metric.new(m) }
-      rescue StandardError => e
-        $stderr.puts e.message
-        return nil
+      def initialize(data = [])
+        @metrics = data.map { |m| Metric.new(m) } if data.class == Array
+        @metrics ||= MessagePack.unpack(data).map { |m| Metric.new(m) }
       end
 
       def proc_by_slices!(n)

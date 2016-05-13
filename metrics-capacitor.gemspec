@@ -10,7 +10,9 @@ Gem::Specification.new do |s|
   s.executables           = Dir['bin/*'].map(){ |f| f.split('/').last }
   s.homepage              = 'https://github.com/prozeta/metrics-capacitor'
   s.license               = 'GPLv3'
-  s.required_ruby_version = '>= 1.9.3'
+  s.required_ruby_version = '>= 2.0.0'
   s.add_runtime_dependency 'sidekiq', '~> 4.1', '>= 4.1.2'
   s.add_runtime_dependency 'thor', '~> 0.19', '>= 0.19.1'
+  s.add_runtime_dependency 'elasticsearch', '~> 1.0', '>= 1.0.17'
+  s.add_runtime_dependency 'msgpack', '~> 0.7', '>= 0.7.6'
 end

@@ -1,18 +1,13 @@
-require 'elasticsearch'
+require 'redis'
 require 'syslog'
 require 'syslog/logger'
 require_relative 'config'
-require_relative 'sidekiq'
-require_relative 'model'
-require_relative 'logger'
 require_relative 'processor/core'
 require_relative 'processor/writer'
 require_relative 'processor/aggregator'
 require_relative 'processor/listener'
 
-
 module MetricsCapacitor
-
   class Engine
 
     def initialize
@@ -55,7 +50,7 @@ module MetricsCapacitor
         end
         log :debug, "#{args[:name].capitalize} spawned as PID #{@pids.last.to_s}"
         logpipe.close
-        sleep 0.5
+        # sleep 0.5
       end
     end
 
@@ -66,6 +61,7 @@ module MetricsCapacitor
         @pids_kiq << Process.fork do
           @logpipe["scrubber_#{num}".to_sym].close
           remove_instance_variable(:@logpipe)
+          require_relative 'sidekiq'
           Sidekiq.configure_server do |config|
             Sidekiq::Logging.logger = ::Logger.new(logpipe)
             Sidekiq::Logging.logger.level = log_level
@@ -88,7 +84,7 @@ module MetricsCapacitor
     def log(severity = :info, msg)
       s = Kernel.const_get("Logger::#{severity.to_s.upcase}")
       @logger_semaphore.synchronize do
-        @logger.log s, msg, 'engine'
+        @logger.log s, msg, 'engine#' + Process.pid.to_s
       end
     end
 
@@ -126,15 +122,14 @@ module MetricsCapacitor
       # TODO: unix socket for control and status reporting ;)
       begin
         ::Process.waitall
-        log :warn, "Terminating!"
+        log :warn, 'Terminating!'
       rescue Interrupt
         retry
       end
-      log :info, "Terminating loggers"
+      log :info, 'Terminating loggers'
       terminate_loggers
-      log :warn, "Engine is shutting down!"
+      log :warn, 'Engine is shutting down!'
     end
-
 
   end
 end

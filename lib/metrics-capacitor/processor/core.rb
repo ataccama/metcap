@@ -1,3 +1,5 @@
+require_relative '../model'
+
 module MetricsCapacitor
   module Processor
     class Core

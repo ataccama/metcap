@@ -5,17 +5,9 @@ module MetricsCapacitor
 
       def_delegators :@metric, :[], :[]=, :merge, :map
 
-      def initialize(data)
+      def initialize(data = {})
         @metric = data if data.class == Hash
         @metric ||= MessagePack.unpack(data)
-      end
-
-      def to_influx
-        [ name,
-          tags.map { |k, v| "#{k}=#{v}" }.join(','),
-          fields.map { |k, v| "#{k}=#{v.to_f}" }.join(','),
-          timestamp(:ns)
-        ].join(' ')
       end
 
       def to_elastic
