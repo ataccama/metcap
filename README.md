@@ -7,23 +7,16 @@
 ## Prerequisities
 
 * Ruby >= 2.0.0
-* Sensu monitoring framework
-* ElasticSearch >= 2.0
-* Redis >= 2.8
-  * (Optional) *Separate Redis for metrics bufferring. Of course, you can use the same as Sensu, but when it fills-up with data, you monitoring will turn wacko...*
 
 ## Install
 
-Just run:
-
-```sudo gem install metrics-capacitor --no-rdoc --no-ri```
-
-...or use your favorite provisioning system
+Please refer to the README of the appropriate module:
+* [engine](https://github.com/metrics-capacitor-engine)
+* [utils](https://github.com/metrics-capacitor-utils)
 
 ## Config
 
-### Metrics Capacitor
-This is the default config:
+Configuration file applies to all Metrics Capacitor modules. This is the default config hash in YAML format:
 
 ```yaml
 :debug: false

@@ -5,7 +5,7 @@ Gem::Specification.new do |s|
   s.summary               = "Metrics Capacitor"
   s.description           = "Metrics igenstion service with ElasticSearch as storage"
   s.authors               = ["Radek 'blufor' Slavicinsky"]
-  s.email                 = 'devops@prozeta.eu'
+  s.email                 = 'radek@blufor.cz'
   s.files                 = Dir['lib/**/*.rb']
   s.executables           = Dir['bin/*'].map(){ |f| f.split('/').last }
   s.homepage              = 'https://github.com/prozeta/metrics-capacitor'
