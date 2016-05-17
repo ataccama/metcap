@@ -6,7 +6,7 @@ module MetricsCapacitor
 
     desc 'engine', 'Start the engine :-)'
     def engine
-      require_relative 'engine'
+      require 'metrics-capacitor/engine'
       Engine.new.run!
     end
 

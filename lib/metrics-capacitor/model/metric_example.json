@@ -1,0 +1,44 @@
+[
+  {
+    "timestamp": 1463487253359,
+    "name": "cpu:idle",
+    "tags": {
+      "host": "test1.test.com",
+      "core": "all",
+      "some_tag": "some_value",
+      "_counter": false
+    },
+    "value": 50
+  },
+  {
+    "timestamp": 1463487253359,
+    "name": "cpu:idle",
+    "tags": {
+      "host": "test1.test.com",
+      "core": "all",
+      "some_tag": "some_value",
+      "_counter": true,
+    },
+    "values": [
+      {
+        "type": "gauge",
+
+      }
+    ]
+  },
+  {
+    "timestamp": 1463487253359,
+    "name": "cpu:idle",
+    "tags": {
+      "host": "test1.test.com",
+      "core": "all",
+      "some_tag": "some_value"
+    },
+    "values": [
+      {
+        "type": "gauge",
+
+      }
+    ]
+  }
+]
