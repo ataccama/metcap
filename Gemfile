@@ -1,4 +1,4 @@
-#ruby=ruby-2.0.0
+#ruby=ruby-2.1.0
 #ruby-gemset=metrics-capacitor
 
 source 'https://rubygems.org'

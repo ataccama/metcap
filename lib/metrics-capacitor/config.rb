@@ -15,9 +15,10 @@ module MetricsCapacitor
     def load!
       @_cfg = {
         syslog: false,
-        debug: true,
+        debug: false,
         redis: {
-          url: 'redis://127.0.0.1:6379/0'
+          url: 'redis://127.0.0.1:6379/0',
+          timeout: 5,
         },
         elasticsearch: {
           urls: ['http://localhost:9200/'],
@@ -26,8 +27,8 @@ module MetricsCapacitor
           connections: 2,
         },
         scrubber: {
-          threads: 16,
-          processes: 1,
+          threads: 4,
+          processes: 2,
           retry: 3,
           tags: {},
           worker_path: worker_path
@@ -35,15 +36,14 @@ module MetricsCapacitor
         writer: {
           processes: 2,
           doc_type: 'actual',
-          bulk_max: 1000,
-          bulk_wait: 15,
-          retry: true
+          bulk_max: 5000,
+          bulk_wait: 10,
+          ttl: '1w'
         },
         aggregator: {
           doc_type: 'aggregated',
           aggregate_by: 600, # seconds
-          optimize_indexes: true,
-          expunge_after: 2678400 # 31 days
+          optimize_indices: true,
         }
       }
       @_cfg = @_cfg.deep_merge YAML.load_file('/etc/metrics-capacitor.yaml') if File.exists? '/etc/metrics-capacitor.yaml'

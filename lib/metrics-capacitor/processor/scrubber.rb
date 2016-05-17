@@ -6,9 +6,11 @@ module MetricsCapacitor
     class Scrubber
       include Sidekiq::Worker
       include MetricsCapacitor::Model
-      
+
       sidekiq_options retry: true
-      sidekiq_options queue: 'scrubber'
+      sidekiq_options queue: :scrubber
+      sidekiq_options backtrace: false
+
 
       REDIS = ConnectionPool.new(size: 2) { Redis.new(url: Config.redis[:url]) }
 

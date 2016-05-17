@@ -24,13 +24,7 @@ module MetricsCapacitor
           terminate_loggers
         end
       end
-      @logpipe = {}
-      @logger = ::Logger.new(STDOUT)
-      @logger.level = log_level
-      @logger.formatter = proc { |severity, datetime, progname, msg| [datetime.to_s, progname, severity, "#{msg}\n"].join(" ") }
-      @logger_threads = []
-      @logger_semaphore = Mutex.new
-      # Logger.init!
+      init_logger
       log :info, "Engine warmed-up :-)"
     end
 
@@ -50,7 +44,6 @@ module MetricsCapacitor
         end
         log :debug, "#{args[:name].capitalize} spawned as PID #{@pids.last.to_s}"
         logpipe.close
-        # sleep 0.5
       end
     end
 
@@ -66,7 +59,7 @@ module MetricsCapacitor
             Sidekiq::Logging.logger = ::Logger.new(logpipe)
             Sidekiq::Logging.logger.level = log_level
             Sidekiq::Logging.logger.progname = "scrubber"
-            Sidekiq::Logging.logger.formatter = proc { |severity, datetime, progname, msg| "#{progname}##{Process.pid}|||#{severity}|||#{msg}\n" }
+            Sidekiq::Logging.logger.formatter = proc { |severity, _, progname, msg| "#{progname}##{Process.pid}|||#{severity}|||#{msg}\n" }
             config.redis = { url: Config.redis[:url] }
           end
           Sidekiq.configure_client do |config|
@@ -92,13 +85,22 @@ module MetricsCapacitor
       Config.debug ? ::Logger::DEBUG : ::Logger::INFO
     end
 
-    def spawn_loggers
+    def init_logger
+      @logpipe = {}
+      @logger = ::Logger.new(STDOUT)
+      @logger.level = log_level
+      @logger.formatter = proc { |severity, datetime, progname, msg| [datetime.to_s, progname, severity, "#{msg}\n"].join(" ") }
+      @logger_threads = []
+      @logger_semaphore = Mutex.new
+    end
+
+    def spawn_logger_threads
       @logpipe.each do |name, pipe|
         @logger_threads << Thread.new do
           Thread.current[:name] = "logger-#{name}"
-          while msg = pipe.gets
+          while ! pipe.eof?
+            msg = pipe.gets
             (progname,severity,message) = msg.split('|||')
-            # $stderr.puts "#{progname} #{severity} #{message}"
             @logger_semaphore.synchronize do
               @logger.log Kernel.const_get("Logger::#{severity}"), message.chomp, progname
             end
@@ -108,7 +110,7 @@ module MetricsCapacitor
     end
 
     def terminate_loggers
-      @logger_threads.each { |t| t.join }
+      @logger_threads.each(&:join)
     end
 
     def run!
@@ -117,7 +119,7 @@ module MetricsCapacitor
       fork_processor name: 'writer', proc_num: Config.writer[:processes]
       fork_processor name: 'aggregator'
       fork_processor name: 'listener'
-      spawn_loggers
+      spawn_logger_threads
       log :info, 'Engine has started :-)'
       # TODO: unix socket for control and status reporting ;)
       begin
