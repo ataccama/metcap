@@ -60,7 +60,7 @@ Any value can be overloaded in ```/etc/metrics-capacitor.yaml```.
 ## Use
 
 ### Service
-You can start the service from command-line by running ```metrics-capacitor service start```, or you can use this simple config for Upstart:
+You can start the service from command-line by running ```metrics-capacitor engine```, or you can use this simple config for Upstart:
 
 ```
 description 'Metrics Capacitor'
@@ -69,7 +69,7 @@ stop on runlevel [06]
 respawn
 limit nofile 65550 65550
 console log
-exec metrics-capacitor run
+exec metrics-capacitor engine
 ```
 
 ### Writing Sensu metric plugins

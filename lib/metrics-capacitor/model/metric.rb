@@ -16,7 +16,7 @@ module MetricsCapacitor
               :@name      => name,
               :@timestamp => timestamp(:ms),
               :@tags      => tags,
-              :@values    => fields
+              :@values    => values
             }
           }
         }
@@ -31,12 +31,19 @@ module MetricsCapacitor
       end
 
       def tags
-        return @metrics[:tags].merge({ capacitor: 'tagged' }) unless @metric[:tags].empty?
+        return @metric[:tags].merge({ capacitor: 'tagged' }) unless @metric[:tags].empty?
         { capacitor: 'untagged' }
       end
 
-      def fields
-        @metric[:fields]
+      def values
+        case @metric[:values]
+        when Hash
+          return @metric[:values]
+        when (Integer||Float)
+          return { value: @metric[:values].to_f }
+        else
+          return { value: 0.0 }
+        end
       end
 
       def timestamp(scale = :ms)

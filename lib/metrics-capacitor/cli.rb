@@ -10,6 +10,19 @@ module MetricsCapacitor
       Engine.new.run!
     end
 
+    desc 'graphite', 'Send Graphite data'
+    long_desc <<-LONGDESC
+      `metrics-capacitor graphite`
+    LONGDESC
+    option :tag_map, required: true
+    option :add_tags, type: :hash
+    option :debug, type: :boolean
+    option :counter_match
+    def graphite
+      require 'metrics-capacitor/utils/graphite'
+      Utils::Graphite.new(options).run!
+    end
+
     desc 'status', 'Report the state (TODO)'
     def status
       # TODO ...

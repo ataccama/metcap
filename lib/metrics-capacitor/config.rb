@@ -30,8 +30,7 @@ module MetricsCapacitor
           threads: 4,
           processes: 2,
           retry: 3,
-          tags: {},
-          worker_path: worker_path
+          tags: {}
         },
         writer: {
           processes: 2,
@@ -47,10 +46,6 @@ module MetricsCapacitor
         }
       }
       @_cfg = @_cfg.deep_merge YAML.load_file('/etc/metrics-capacitor.yaml') if File.exists? '/etc/metrics-capacitor.yaml'
-    end
-
-    def worker_path
-      File.expand_path('..', __FILE__) + '/processor/scrubber.rb'
     end
 
     def method_missing (name, *args, &block)
