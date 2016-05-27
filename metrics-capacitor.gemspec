@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name                  = 'metrics-capacitor'
-  s.version               = '0.0.1'
+  s.version               = '0.0.2'
   s.date                  = Time.now.strftime('%Y-%m-%d')
   s.summary               = "Metrics Capacitor"
   s.description           = "Metrics igenstion service with ElasticSearch as storage"
