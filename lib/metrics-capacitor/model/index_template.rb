@@ -7,7 +7,7 @@ module MetricsCapacitor
       },
       mappings: {
         '_default_' => {
-          '_source' => { 'enabled' => false },
+          '_source' => { 'enabled' => true },
           'dynamic_templates' => [
             {
               'values' => {
@@ -16,7 +16,9 @@ module MetricsCapacitor
                   'type' => 'float'
                 },
                 'path_match' => '@values.*'
-              },
+              }
+            },
+            {
               'tags' => {
                 'mapping' => {
                   'index' => 'not_analyzed',
@@ -41,9 +43,13 @@ module MetricsCapacitor
             '@timestamp' => {
               'type' => 'date'
             },
-            '@tags._counter' => {
-              'type' => 'boolean',
-              'index' => 'not_analyzed'
+            '@tags' => {
+              'properties' => {
+                '_counter' => {
+                  'type' => 'boolean',
+                  'index' => 'not_analyzed'
+                }
+              }
             }
           }
         }

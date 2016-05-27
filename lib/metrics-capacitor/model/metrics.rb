@@ -6,12 +6,11 @@ module MetricsCapacitor
       def_delegators :@metrics, :slice, :slice!, :map, :each, :empty?, :length, :<<
 
       def initialize(data = [])
-        @metrics = data.map { |m| Metric.new(m) } if data.class == Array
-        @metrics ||= MessagePack.unpack(data).map { |m| Metric.new(m) }
+        @metrics = data.map { |m| Metric.new(m) }
       end
 
       def proc_by_slices!(n)
-        @metrics.each_slice(n) { |s| yield Metrics.new(s, :array) }
+        @metrics.each_slice(n) { |s| yield Metrics.new(s) }
       end
 
       def to_elastic

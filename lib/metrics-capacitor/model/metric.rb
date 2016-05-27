@@ -7,7 +7,7 @@ module MetricsCapacitor
 
       def initialize(data = {})
         @metric = data if data.class == Hash
-        @metric ||= MessagePack.unpack(data)
+        @metric ||= JSON.parse(data, symbolize_names: true)
       end
 
       def to_elastic
@@ -23,7 +23,7 @@ module MetricsCapacitor
       end
 
       def to_redis
-        @metric.to_msgpack
+        @metric.to_json
       end
 
       def name
@@ -31,7 +31,7 @@ module MetricsCapacitor
       end
 
       def tags
-        return @metric[:tags].merge({ capacitor: 'tagged' }) unless @metric[:tags].empty?
+        return @metric[:tags] if ( @metric[:tags] || @metric[:tags].empty? )
         { capacitor: 'untagged' }
       end
 
@@ -39,8 +39,10 @@ module MetricsCapacitor
         case @metric[:values]
         when Hash
           return @metric[:values]
-        when (Integer||Float)
+        when Integer
           return { value: @metric[:values].to_f }
+        when Float
+          return { value: @metric[:values] }
         else
           return { value: 0.0 }
         end
