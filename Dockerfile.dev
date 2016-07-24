@@ -1,0 +1,5 @@
+FROM blufor/lightimage
+RUN apk --no-cache add go go-tools && mkdir -p /devel
+ENV GOPATH "/devel/.vendor"
+VOLUME /devel
+CMD [ "/bin/bash" ]
