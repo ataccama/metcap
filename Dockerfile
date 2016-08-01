@@ -1,7 +1,8 @@
 FROM blufor/lightimage
-RUN apk install --no-cache go
 RUN mkdir -p /etc/metrics-capacitor
-COPY app/bin/metrics-capacitor /bin/metrics-capacitor
-COPY docker-metrics-capacitor /bin/docker-metrics-capacitor
+ENV METCAP_REDIS "127.0.0.1:6379"
+ENV METCAP_ELASTIC "127.0.0.1:9200"
+COPY bin/metrics-capacitor /bin/metrics-capacitor
+COPY metrics-capacitor-docker /bin/metrics-capacitor-docker
 VOLUME [ "/etc/metrics-capacitor" ]
-CMD [ "/bin/docker-metrics-capacitor" ]
+CMD [ "/bin/metrics-capacitor-docker" ]

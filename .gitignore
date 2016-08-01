@@ -1,5 +1,5 @@
+bin/metrics-capacitor
 src/**
 !src/github.com/metrics-capacitor/**
 pkg
-bin
-.image
+.image*

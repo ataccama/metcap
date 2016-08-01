@@ -4,5 +4,5 @@ RUN mkdir -p /tmp /var/tmp
 ENV GOPATH "/go/:/usr/lib/go"
 ENV GOBIN "/usr/local/bin"
 ENV PWD "/go"
-VOLUME /go
+VOLUME /go/src /go/bin /go/pkg
 CMD [ "/bin/bash", "-li" ]

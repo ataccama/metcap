@@ -1,16 +1,25 @@
 # Metrics Capacitor
 
-> Metrics processing framework for (but not limited to) Sensu
+> Metrics processing engine with ElasticSearch backend
 
-This gem contains:
-- ```metrics-capacitor``` binary
-- Model
-  - metric
-  - metrics
-  - ES index template
-- Config framework
-- Thor CLI provider definitions
 
-Please refer to the README of the appropriate module:
-* [engine](https://github.com/metrics-capacitor/metrics-capacitor-engine#metrics-capacitor-engine) (metrics processing [server])
-* [utils](https://github.com/metrics-capacitor/metrics-capacitor-utils#metrics-capacitor-utils) (Sensu & CLI utils [client])
+## Prerequisities
+
+- Redis 3.x
+- ElasticSearch 2.3
+- Go 1.6 (for development)
+
+## Usage
+**Work in progress...**
+
+## Configuration
+
+## Development
+
+Everything is handled by Makefile
+
+- ```make prepare``` - create Docker devel environment
+- ```make build``` - build Docker image with Metrics Capacitor
+- ```make push``` - push built Docker image
+
+You can also manually grab the built binary from ```bin/```
