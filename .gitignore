@@ -1,5 +1,12 @@
+*.o
+*.a
+*.so
 bin/metrics-capacitor
-src/**
-!src/github.com/metrics-capacitor/**
-pkg
 .image*
+!src/
+src/*
+!src/github.com
+src/github.com/*
+!src/github.com/metrics-capacitor
+src/github.com/metrics-capacitor/*
+!src/github.com/metrics-capacitor/metrics-capacitor
