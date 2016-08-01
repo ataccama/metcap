@@ -1,5 +1,8 @@
 FROM blufor/lightimage
-RUN apk --no-cache add go go-tools && mkdir -p /devel
-ENV GOPATH "/devel/.vendor"
-VOLUME /devel
-CMD [ "/bin/bash" ]
+RUN apk --no-cache add go go-tools && mkdir -p /go
+RUN mkdir -p /tmp /var/tmp
+ENV GOPATH "/go/:/usr/lib/go"
+ENV GOBIN "/usr/local/bin"
+ENV PWD "/go"
+VOLUME /go
+CMD [ "/bin/bash", "-li" ]

@@ -1,2 +1,5 @@
-.vendor
-.vendor/*
+src/**
+!src/github.com/metrics-capacitor/**
+pkg
+bin
+.image
