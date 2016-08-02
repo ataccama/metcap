@@ -10,11 +10,13 @@ LDFLAGS=--ldflags "-X main.Version=$(VERSION) -X main.Build=$(BUILD)"
 D_RUN=run --rm -h $(IMG_DEV) -v "$(PATH)/metrics-capacitor.go:/go/metrics-capacitor.go" -v "$(PATH)/bin:/go/bin" -v "$(PATH)/src:/go/src" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/metrics-capacitor"
 
 all: prepare build
-.PHONY: prepare build enter rmi clean push
+.PHONY: prepare build enter rmi clean push binary
 .DEFAULT_GOAL: prepare build
 prepare: .image.dev pkg
-lib: pkg/linux_amd64/$(LIB_PATH)
-build:	bin/$(NAME) .image
+lib: pkg/linux_amd64/$(LIB_PATH).a
+binary:	bin/$(NAME) .image
+build: lib binary
+
 
 .image.dev:
 	@echo BUILDING DOCKER DEV IMAGE
@@ -30,7 +32,7 @@ build:	bin/$(NAME) .image
 push:
 	$(DOCKER) push $(IMG_PROD):$(VERSION)
 
-bin/$(NAME): .image.dev
+bin/$(NAME): .image.dev pkg/linux_amd64/$(LIB_PATH).a
 	@echo BUILDING SOURCE
 	@echo "Version:\t$(VERSION)"
 	@echo "Build:\t\t$(BUILD)\n"
@@ -40,8 +42,8 @@ pkg:
 	@echo GETTING GO IMPORTS
 	@$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go get -v $(LIB_PATH)'
 
-pkg/linux_amd64/github.com/metrics-capacitor/metrics-capacitor: pkg
-	@$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go build -v -a src/$(LIB_PATH)/*.go'
+pkg/linux_amd64/$(LIB_PATH).a: pkg src/$(LIB_PATH)/*.go
+	@$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go install -v -a $(LIB_PATH)'
 
 enter: .image.dev
 	@echo ENTERING CONTAINER
