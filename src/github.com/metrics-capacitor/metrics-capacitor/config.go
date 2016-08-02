@@ -1,54 +1,50 @@
 package metcap
 
 import (
-  "github.com/BurntSushi/toml"
   "os"
   "fmt"
+
+  "github.com/BurntSushi/toml"
 )
 
-// Main configuration struct
-//
 type Config struct {
-  Syslog  bool
-  Debug   bool
-  Redis   struct {
-    Url       string
-    Timeout   int
-    MaxIdle   int
-    MaxActive int
-  }
-  Elasticsearch struct {
-    Urls        []string
-    Timeout     int
-    Connections int
-    Index       string
-  }
-  Listener []ListenerConfig
-  Scrubber struct {
-    Threads int
-  }
-  Writer struct {
-    Threads   int
-    DocType   string
-    BulkMax   int
-    BulkWait  int
-    Ttl       int
-  }
-  Aggregator struct {
-    DocType         string
-    AggregateBy     int
-    OptimizeIndices bool
-  }
+  Syslog        bool
+  Debug         bool
+  Redis         RedisConfig
+  Listener      map[string]ListenerConfig
+  Writer        WriterConfig
+  Aggregator    AggregatorConfig
 }
 
-// Listener configuration sub-type
-//
+type RedisConfig struct {
+  Socket      string
+  Address     string
+  DB          int
+  Timeout     int
+  Connections int
+  Queue       string
+}
+
 type ListenerConfig struct {
-  Type  string
+  Kind  string
   Port  int
 }
 
+type WriterConfig struct {
+  Urls        []string
+  Timeout     int
+  Concurrency int
+  BulkMax     int
+  BulkWait    int
+  Index       string
+  DocType     string
+  Ttl         int
+}
+
+type AggregatorConfig struct {}
+
 // Read config file
+//
 func ReadConfig(configfile *string) Config {
 	if _, err := os.Stat(*configfile); err != nil {
 		fmt.Println("Can't read %s", *configfile)

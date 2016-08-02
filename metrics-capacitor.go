@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-  configfile := flag.String("configfile", "/etc/metrics-capacitor/main.conf", "Path to config file")
-  engine := NewEngine(&configfile)
-  engine.Run()
+  cfg := flag.String("config", "/etc/metrics-capacitor/main.conf", "Path to config file")
+  daemon := flag.Bool("daemonize", false, "Run on background")
+  metcap.NewEngine(&cfg, &daemon).Run()
 }

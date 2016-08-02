@@ -1,12 +1,20 @@
 package metcap
 
 import (
-  // "encoding/json"
+  "encoding/json"
 )
 
 // Metric struct
 //
 type Metric struct {
+  Name      string
+  Timestamp float64
+  Value     float64
+  Fields    []MetricField
+}
+
+// Metric Document
+type MetricDocument struct {
   Name      string
   Timestamp float64
   Value     float64
@@ -24,11 +32,26 @@ type MetricField struct {
 //
 type Metrics []Metric
 
-
-func (m *Metrics) ToElastic() string {
-  return "test"
+// Create ElasticSearch Document Bulk
+//
+func (m *Metric) ToElastic() []byte {
+  return []byte{}
 }
 
-func (m *Metrics) ToBuffer() string {
-  return "test"
+// Encode for Redis buffer
+//
+func (m *Metric) Bufferize() []byte {
+  return []byte{}
+}
+
+
+// Decode from Redis buffer
+//
+func Unbufferize(j string) (Metric, error) {
+  var m Metric
+  err := json.Unmarshal([]byte(j), &m)
+  if err != nil {
+    return Metric{}, err
+  }
+  return m, err
 }

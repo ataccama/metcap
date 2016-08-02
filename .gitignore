@@ -1,9 +1,10 @@
 *.o
 *.a
 *.so
+pkg
 bin/metrics-capacitor
 .image*
-!src/
+!src/metrics-capacitor.go
 src/*
 !src/github.com
 src/github.com/*

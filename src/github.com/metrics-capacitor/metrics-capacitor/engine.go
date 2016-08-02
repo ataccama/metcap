@@ -8,25 +8,36 @@ import (
 
 type Engine struct {
   Config      Config
+  Daemon      *bool
   Workers     *sync.WaitGroup
   SignalChan  chan os.Signal
   ExitChan    chan int
 }
 
-func NewEngine(configfile *string) Engine {
+func NewEngine(configfile *string, daemon *bool) Engine {
   return Engine{
     Config:     ReadConfig(configfile),
+    Daemon:     daemon,
     Workers:    &sync.WaitGroup{},
     SignalChan: make(chan os.Signal, 1),
     ExitChan:   make(chan int)}
 }
 
 func (e *Engine) Run() {
-  buffer := NewBuffer(&e.Config)
+  // initialize buffer
+  b := NewBuffer(&e.Config.Redis)
 
-  go RunWriter(e.Workers)
-  go RunListener(e.Workers)
+  // initialize & start writer
+  w := NewWriter(&e.Config.Writer, b, e.Workers)
+  go w.Run()
 
+  // initialize & start listeners
+  for name, cfg := range e.Config.Listener {
+    l := NewListener(&name, &cfg, b, e.Workers)
+    go l.Run()
+  }
+
+  // signal handling
   go func() {
     for {
       s := <-e.SignalChan
@@ -40,8 +51,16 @@ func (e *Engine) Run() {
       }
     }
   }()
+
+  // exit code semaphore
   exit := <-e.ExitChan
+
+  // wait for all workers to finish
   e.Workers.Wait()
-  buffer.Close()
+
+  // close buffer connection
+  b.Close()
+
+  // exit to the system :)
   os.Exit(exit)
 }

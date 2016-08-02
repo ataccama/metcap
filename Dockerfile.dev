@@ -1,5 +1,5 @@
 FROM blufor/lightimage
-RUN apk --no-cache add go go-tools && mkdir -p /go
+RUN apk --no-cache add go go-tools gcc musl-dev && mkdir -p /go
 RUN mkdir -p /tmp /var/tmp
 ENV GOPATH "/go/:/usr/lib/go"
 ENV GOBIN "/usr/local/bin"
