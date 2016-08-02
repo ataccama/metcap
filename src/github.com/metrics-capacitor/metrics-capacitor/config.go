@@ -26,8 +26,8 @@ type RedisConfig struct {
 }
 
 type ListenerConfig struct {
-  Kind  string
-  Port  int
+  Protocol  string
+  Port      int
 }
 
 type WriterConfig struct {

@@ -9,14 +9,25 @@ DOCKER=$(shell which docker)
 LDFLAGS=--ldflags "-X main.Version=$(VERSION) -X main.Build=$(BUILD)"
 D_RUN=run --rm -h $(IMG_DEV) -v "$(PATH)/metrics-capacitor.go:/go/metrics-capacitor.go" -v "$(PATH)/bin:/go/bin" -v "$(PATH)/src:/go/src" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/metrics-capacitor"
 
-all: prepare build
-.PHONY: prepare build enter rmi clean push binary
-.DEFAULT_GOAL: prepare build
+.DEFAULT_GOAL := binary
+
+.PHONY: default
+default: binary
+
+.PHONY: prepare
 prepare: .image.dev pkg
+
+.PHONY: lib
 lib: pkg/linux_amd64/$(LIB_PATH).a
-binary:	bin/$(NAME) .image
+
+.PHONY: binary
+binary:	bin/$(NAME)
+
+.PHONY: build
 build: lib binary
 
+
+sources := $(shell find src/$(LIB_PATH) -name '*.go')
 
 .image.dev:
 	@echo BUILDING DOCKER DEV IMAGE
@@ -29,31 +40,39 @@ build: lib binary
 	$(DOCKER) tag $(IMG_PROD):$(VERSION) $(IMG_PROD):latest
 	@touch $@
 
-push:
-	$(DOCKER) push $(IMG_PROD):$(VERSION)
-
-bin/$(NAME): .image.dev pkg/linux_amd64/$(LIB_PATH).a
-	@echo BUILDING SOURCE
+bin/$(NAME): .image.dev pkg/linux_amd64/$(LIB_PATH).a $(NAME).go
+	@echo \nBUILDING SOURCE
 	@echo "Version:\t$(VERSION)"
 	@echo "Build:\t\t$(BUILD)\n"
-	@$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go build -v $(LDFLAGS) -o $@ /go/$(NAME).go'
+	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go build -v $(LDFLAGS) -o $@ /go/$(NAME).go'
 
 pkg:
 	@echo GETTING GO IMPORTS
-	@$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go get -v $(LIB_PATH)'
+	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go get -v $(LIB_PATH)'
 
-pkg/linux_amd64/$(LIB_PATH).a: pkg src/$(LIB_PATH)/*.go
-	@$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go install -v -a $(LIB_PATH)'
+pkg/linux_amd64/$(LIB_PATH).a: pkg $(sources)
+	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go install -v -a $(LIB_PATH)'
 
+.PHONY: run
+run:
+	-$(DOCKER) $(D_RUN) -it $(IMG_DEV) /go/bin/metrics-capacitor
+
+.PHONY: push
+push:
+	$(DOCKER) push $(IMG_PROD):$(VERSION)
+
+.PHONY: enter
 enter: .image.dev
 	@echo ENTERING CONTAINER
 	$(DOCKER) $(D_RUN) -it $(IMG_DEV)
 
+.PHONY: rmi
 rmi:
 	@echo REMOVING IMAGE
 	$(DOCKER) rmi $(IMG_DEV)
 	rm -f .image.dev
 
+.PHONY: clean
 clean: rmi
 	@echo CLEANING
 	rm -rf pkg bin/$(NAME)

@@ -14,10 +14,10 @@ type Engine struct {
   ExitChan    chan int
 }
 
-func NewEngine(configfile *string, daemon *bool) Engine {
+func NewEngine(configfile string, daemon bool) Engine {
   return Engine{
-    Config:     ReadConfig(configfile),
-    Daemon:     daemon,
+    Config:     ReadConfig(&configfile),
+    Daemon:     &daemon,
     Workers:    &sync.WaitGroup{},
     SignalChan: make(chan os.Signal, 1),
     ExitChan:   make(chan int)}
