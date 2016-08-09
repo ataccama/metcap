@@ -10,7 +10,6 @@ LDFLAGS=--ldflags "-X main.Version=$(VERSION) -X main.Build=$(BUILD)"
 D_RUN=run --rm -h $(IMG_DEV) -v "$(PATH)/metrics-capacitor.go:/go/metrics-capacitor.go" -v "$(PATH)/bin:/go/bin" -v "$(PATH)/src:/go/src" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/metrics-capacitor"
 
 .DEFAULT_GOAL := binary
-
 .PHONY: default
 default: binary
 
@@ -26,9 +25,6 @@ binary:	bin/$(NAME)
 .PHONY: build
 build: lib binary
 
-
-sources := $(shell find src/$(LIB_PATH) -name '*.go')
-
 .image.dev:
 	@echo BUILDING DOCKER DEV IMAGE
 	$(DOCKER) build -t $(IMG_DEV) - < Dockerfile.dev
@@ -41,17 +37,18 @@ sources := $(shell find src/$(LIB_PATH) -name '*.go')
 	@touch $@
 
 bin/$(NAME): .image.dev pkg/linux_amd64/$(LIB_PATH).a $(NAME).go
-	@echo \nBUILDING SOURCE
+	@echo "\nBUILDING SOURCE"
 	@echo "Version:\t$(VERSION)"
 	@echo "Build:\t\t$(BUILD)\n"
-	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go build -v $(LDFLAGS) -o $@ /go/$(NAME).go'
+	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && time go build -v $(LDFLAGS) -o $@ /go/$(NAME).go'
 
 pkg:
 	@echo GETTING GO IMPORTS
 	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go get -v $(LIB_PATH)'
 
+sources := $(shell find src/$(LIB_PATH) -name '*.go')
 pkg/linux_amd64/$(LIB_PATH).a: pkg $(sources)
-	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go install -v -a $(LIB_PATH)'
+	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && time go install -v -a $(LIB_PATH)'
 
 .PHONY: run
 run:

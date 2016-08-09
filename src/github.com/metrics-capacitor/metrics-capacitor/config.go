@@ -10,24 +10,26 @@ import (
 type Config struct {
   Syslog        bool
   Debug         bool
-  Redis         RedisConfig
+  Buffer        BufferConfig
   Listener      map[string]ListenerConfig
   Writer        WriterConfig
   Aggregator    AggregatorConfig
 }
 
-type RedisConfig struct {
+type BufferConfig struct {
   Socket      string
   Address     string
   DB          int
   Timeout     int
+  Wait        int
   Connections int
   Queue       string
 }
 
 type ListenerConfig struct {
-  Protocol  string
   Port      int
+  Protocol  string
+  Data      string
 }
 
 type WriterConfig struct {
@@ -47,7 +49,7 @@ type AggregatorConfig struct {}
 //
 func ReadConfig(configfile *string) Config {
 	if _, err := os.Stat(*configfile); err != nil {
-		fmt.Println("Can't read %s", *configfile)
+		fmt.Println("Can't read configfile")
     os.Exit(1)
 	}
 
@@ -56,5 +58,6 @@ func ReadConfig(configfile *string) Config {
 		fmt.Println(err)
     os.Exit(1)
 	}
+
 	return config
 }

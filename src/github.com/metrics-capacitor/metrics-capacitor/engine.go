@@ -25,7 +25,7 @@ func NewEngine(configfile string, daemon bool) Engine {
 
 func (e *Engine) Run() {
   // initialize buffer
-  b := NewBuffer(&e.Config.Redis)
+  b := NewBuffer(&e.Config.Buffer)
 
   // initialize & start writer
   w := NewWriter(&e.Config.Writer, b, e.Workers)

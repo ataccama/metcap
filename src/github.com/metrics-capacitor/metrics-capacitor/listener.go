@@ -30,6 +30,7 @@ func NewListener(name *string, c *ListenerConfig, b *Buffer, wg *sync.WaitGroup)
 }
 
 func (l *Listener) Run() {
+  defer l.Stop()
   for {
     conn, err := l.Socket.Accept()
     if err != nil {
@@ -45,14 +46,10 @@ func (l *Listener) Stop() {
 }
 
 func (l *Listener) handle(conn net.Conn) {
+  defer conn.Close()
   sockBuf := make([]byte, 0, 65535)
   _, err := conn.Read(sockBuf)
   if err != nil {
     fmt.Println("Can't copy the data from socket into the buffer: ", err.Error())
   }
-  //
-  // TODO
-  //
-  conn.Close()
-
 }
