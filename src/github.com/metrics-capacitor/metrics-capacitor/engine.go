@@ -4,6 +4,7 @@ import (
   "os"
   "syscall"
   "sync"
+  "fmt"
 )
 
 type Engine struct {
@@ -24,18 +25,24 @@ func NewEngine(configfile string, daemon bool) Engine {
 }
 
 func (e *Engine) Run() {
+  fmt.Println("MetricsCapacitor Engine is starting")
   // initialize buffer
   b := NewBuffer(&e.Config.Buffer)
+  fmt.Println("...buffer initialized")
 
   // initialize & start writer
   w := NewWriter(&e.Config.Writer, b, e.Workers)
   go w.Run()
+  fmt.Println("...writer initialized & started")
 
   // initialize & start listeners
-  for name, cfg := range e.Config.Listener {
-    l := NewListener(&name, &cfg, b, e.Workers)
+  fmt.Println("...initilizing listeners...")
+  for l_name, cfg := range e.Config.Listener {
+    l := NewListener(l_name, cfg, b, e.Workers)
     go l.Run()
+    fmt.Println("....listener " + l_name + " initialized")
   }
+
 
   // signal handling
   go func() {

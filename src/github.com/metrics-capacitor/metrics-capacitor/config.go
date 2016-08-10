@@ -29,7 +29,7 @@ type BufferConfig struct {
 type ListenerConfig struct {
   Port      int
   Protocol  string
-  Data      string
+  Codec     string
 }
 
 type WriterConfig struct {

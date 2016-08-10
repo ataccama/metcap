@@ -7,13 +7,14 @@ import (
   "regexp"
   "time"
   "encoding/json"
+  "gopkg.in/vmihailenco/msgpack.v2"
 )
 
 // Metric struct
 //
 type Metric struct {
   Name      string            `json:"name"`
-  Timestamp time.Time         `json:"timestamp"`
+  Timestamp time.Time         `json:"@timestamp"`
   Value     float64           `json:"value"`
   Fields    map[string]string `json:"fields"`
 }
@@ -36,9 +37,8 @@ func NewMetricFromLine(line string, codec string, mut *[]string) (Metric, error)
   case "graphite":
     pat = `^(?P<path>[a-zA-Z0-9_\-\.]+) (?P<value>[0-9\.]+)(\ (?P<timestamp>[0-9]{10,13}))?$`
   case "influx":
-    pat = `^(?P<name>[a-zA-Z0-9_\-\.]+)\ (?P<fields>[a-zA-Z0-9,_\-\.=]+)\ (?P<value>[0-9\.]+)(\ (?P<timestamp>[0-9]{10,13}))?$`
+    pat = `^(?P<name>[a-zA-Z0-9_\-\.]+) (?P<fields>[a-zA-Z0-9,_\-\.\=]+) (?P<value>[0-9\.]+)( (?P<timestamp>\d{10,13}))?\s*$`
   }
-
   re := regexp.MustCompile(pat)
   match := re.FindStringSubmatch(line)
   dissected := map[string]string{}
@@ -83,16 +83,15 @@ func parseTimestamp(d map[string]string) (time.Time) {
     t_int, err := strconv.ParseInt(t_str, 10, 64)
     if err != nil {
       return t_now
-    } else {
-      return time.Unix(t_int, 0)
     }
+    return time.Unix(t_int, 0)
   // time is in Unix timestamp with second fractions
   case t_len > 11:
-    t_unix_sec, err = strconv.ParseInt(string(t_byte[:12]), 10, 64)
+    t_unix_sec, err = strconv.ParseInt(string(t_byte[:11]), 10, 64)
     if err != nil {
       return t_now
     } else {
-      t_unix_nsec, err = strconv.ParseInt(string(t_byte[12:t_len]) + strings.Repeat("0", len(t_byte[12:t_len])), 10, 64)
+      t_unix_nsec, err = strconv.ParseInt(string(t_byte[11:t_len]) + strings.Repeat("0", len(t_byte[11:t_len])), 10, 64)
       if err != nil {
         return t_now
       }
@@ -107,7 +106,7 @@ func parseTimestamp(d map[string]string) (time.Time) {
 func parseValue(d map[string]string) (float64) {
   var (
     value float64
-    err error
+    err   error
   )
   value, err = strconv.ParseFloat(d["value"], 64)
   if err != nil {
@@ -118,10 +117,8 @@ func parseValue(d map[string]string) (float64) {
 
 // helper function to parse metric name and fields
 func parseFields(d map[string]string, mut *[]string) (string, map[string]string) {
-  var (
-    name []string
-    fields map[string]string
-  )
+  name := []string{}
+  fields := make(map[string]string)
 
   // check if we have graphite path
   if _, ok := d["path"]; ok {
@@ -160,7 +157,9 @@ func parseFields(d map[string]string, mut *[]string) (string, map[string]string)
     // iterate thru fields
     for _, field := range strings.Split(d["fields"], ",") {
       kv := strings.Split(field ,"=")
-      fields[kv[0]] = kv[1]
+      if kv[0] != "" {
+        fields[kv[0]] = kv[1]
+      }
     }
   }
   return strings.Join(name, ":"), fields

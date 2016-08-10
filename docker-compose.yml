@@ -1,0 +1,9 @@
+---
+version: '2'
+services:
+  es:
+    image: elasticsearch
+    network_mode: host
+  redis:
+    image: redis
+    network_mode: host

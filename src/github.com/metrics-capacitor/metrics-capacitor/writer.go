@@ -38,6 +38,5 @@ func (w *Writer) Run() {
 }
 
 func (w *Writer) Stop() {
-  w.Elastic.Close()
   w.Wg.Done()
 }

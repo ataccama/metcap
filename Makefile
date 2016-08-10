@@ -7,7 +7,7 @@ PATH=$(shell pwd -P)
 BUILD=$(shell git rev-parse --short HEAD)
 DOCKER=$(shell which docker)
 LDFLAGS=--ldflags "-X main.Version=$(VERSION) -X main.Build=$(BUILD)"
-D_RUN=run --rm -h $(IMG_DEV) -v "$(PATH)/metrics-capacitor.go:/go/metrics-capacitor.go" -v "$(PATH)/bin:/go/bin" -v "$(PATH)/src:/go/src" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/metrics-capacitor"
+D_RUN=run --rm -h $(IMG_DEV) --name $(IMG_DEV) --net host -v "$(PATH)/metrics-capacitor.go:/go/metrics-capacitor.go" -v "$(PATH)/bin:/go/bin" -v "$(PATH)/src:/go/src" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/metrics-capacitor"
 
 .DEFAULT_GOAL := binary
 .PHONY: default

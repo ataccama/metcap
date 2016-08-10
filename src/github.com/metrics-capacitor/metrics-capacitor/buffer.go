@@ -2,6 +2,7 @@ package metcap
 
 import (
   "time"
+  "fmt"
   "gopkg.in/redis.v4"
 )
 
@@ -20,13 +21,13 @@ func NewBuffer(c *BufferConfig) *Buffer {
       DB: c.DB,
       PoolSize: c.Connections,
       PoolTimeout: time.Duration(c.Timeout) * time.Second}),
-    Queue: "mc:" + c.Queue,
+    Queue: "mc-" + c.Queue,
     Wait: c.Wait,
     ExitChan: make(chan bool)}
 }
 
 func (b *Buffer) Push(m *Metric) error {
-  return b.Redis.RPush(b.Queue, m.JSON()).Err()
+  return b.Redis.RPush(b.Queue, string(m.JSON())).Err()
 }
 
 func (b *Buffer) Pop() (Metric, error) {

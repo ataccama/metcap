@@ -5,6 +5,7 @@ import (
   "sync"
   "net"
   "strconv"
+  "bufio"
 )
 
 type Listener struct {
@@ -15,41 +16,49 @@ type Listener struct {
   Buffer  *Buffer
 }
 
-func NewListener(name *string, c *ListenerConfig, b *Buffer, wg *sync.WaitGroup) *Listener {
+func NewListener(name string, c ListenerConfig, b *Buffer, wg *sync.WaitGroup) Listener {
   wg.Add(1)
   sock, err := net.Listen("tcp", ":" + strconv.Itoa(c.Port))
   if err != nil {
     panic(err)
   }
-  return &Listener{
-    Name: name,
+  return Listener{
+    Name: &name,
     Socket: sock,
-    Config: c,
+    Config: &c,
     Wg: wg,
     Buffer: b}
 }
 
-func (l *Listener) Run() {
+func (l Listener) Run() {
   defer l.Stop()
   for {
-    conn, err := l.Socket.Accept()
-    if err != nil {
-      fmt.Println("Can't accept connection: " + err.Error())
+    connection, err := l.Socket.Accept()
+    if err == nil {
+      go l.handleConnection(connection)
+    } else {
+      fmt.Println("ERROR: Can't accept connection:" + err.Error())
     }
-    go l.handle(conn)
   }
 }
 
-func (l *Listener) Stop() {
+func (l Listener) Stop() {
   l.Socket.Close()
   l.Wg.Done()
 }
 
-func (l *Listener) handle(conn net.Conn) {
+func (l Listener) handleConnection(conn net.Conn) {
   defer conn.Close()
-  sockBuf := make([]byte, 0, 65535)
-  _, err := conn.Read(sockBuf)
-  if err != nil {
-    fmt.Println("Can't copy the data from socket into the buffer: ", err.Error())
+  scn := bufio.NewScanner(conn)
+  for scn.Scan() {
+    line := scn.Text()
+    metric, err := NewMetricFromLine(line, l.Config.Codec, &[]string{})
+    if err != nil {
+      fmt.Println("ERROR: Can't parse metric data:" + err.Error())
+    }
+    err = l.Buffer.Push(&metric)
+    if err != nil {
+      fmt.Println("ERROR: Can't push metric into Redis buffer:" + err.Error())
+    }
   }
 }
