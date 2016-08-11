@@ -2,7 +2,6 @@ package metcap
 
 import (
   "time"
-  "fmt"
   "gopkg.in/redis.v4"
 )
 
@@ -13,6 +12,7 @@ type Buffer struct {
   ExitChan  chan bool
 }
 
+// initialize buffer
 func NewBuffer(c *BufferConfig) *Buffer {
   return &Buffer{
     Redis: redis.NewClient(&redis.Options{
@@ -21,21 +21,23 @@ func NewBuffer(c *BufferConfig) *Buffer {
       DB: c.DB,
       PoolSize: c.Connections,
       PoolTimeout: time.Duration(c.Timeout) * time.Second}),
-    Queue: "mc-" + c.Queue,
+    Queue: "mc:" + c.Queue,
     Wait: c.Wait,
     ExitChan: make(chan bool)}
 }
 
+// send metric to buffer
 func (b *Buffer) Push(m *Metric) error {
-  return b.Redis.RPush(b.Queue, string(m.JSON())).Err()
+  return b.Redis.RPush(b.Queue, m.Serialize()).Err()
 }
 
+// retrieve metric from buffer
 func (b *Buffer) Pop() (Metric, error) {
   m, err := b.Redis.BLPop(time.Duration(b.Wait) * time.Second, b.Queue).Result()
   if err != nil {
     return Metric{}, err
   }
-  metric, err := NewMetricFromJSON([]byte(m[1]))
+  metric, err := DeserializeMetric(m[1])
   return metric, err
 }
 

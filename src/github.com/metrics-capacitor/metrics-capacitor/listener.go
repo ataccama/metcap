@@ -30,7 +30,7 @@ func NewListener(name string, c ListenerConfig, b *Buffer, wg *sync.WaitGroup) L
     Buffer: b}
 }
 
-func (l Listener) Run() {
+func (l *Listener) Run() {
   defer l.Stop()
   for {
     connection, err := l.Socket.Accept()
@@ -42,12 +42,12 @@ func (l Listener) Run() {
   }
 }
 
-func (l Listener) Stop() {
+func (l *Listener) Stop() {
   l.Socket.Close()
   l.Wg.Done()
 }
 
-func (l Listener) handleConnection(conn net.Conn) {
+func (l *Listener) handleConnection(conn net.Conn) {
   defer conn.Close()
   scn := bufio.NewScanner(conn)
   for scn.Scan() {

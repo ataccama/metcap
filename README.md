@@ -1,7 +1,19 @@
 # Metrics Capacitor
 
-> Metrics processing engine with ElasticSearch backend
+> Metrics processing engine with ElasticSearch backend, like Logstash is for logs :)
 
+**Work in progress...**
+
+## Features
+- [x] Concurrent bulk writer
+- [x] TCP listener with influx codec
+- [x] TCP listener with graphite codec
+- [ ] HTTP listener with JSON codec
+- [ ] UDP listener with StatsD codec
+- [ ] HTTP API
+- [ ] logger
+- [ ] Signal responsiveness
+- [ ] safe shutdown (no metric shall be lost)
 
 ## Prerequisities
 
@@ -10,9 +22,12 @@
 - Go 1.6 (for development)
 
 ## Usage
-**Work in progress...**
+
+**TODO**
 
 ## Configuration
+
+See contents of ```etc/``` directory.
 
 ## Development
 

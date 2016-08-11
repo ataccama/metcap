@@ -25,22 +25,22 @@ func NewEngine(configfile string, daemon bool) Engine {
 }
 
 func (e *Engine) Run() {
-  fmt.Println("MetricsCapacitor Engine is starting")
+  fmt.Println("INFO:  MetricsCapacitor Engine is starting")
   // initialize buffer
   b := NewBuffer(&e.Config.Buffer)
-  fmt.Println("...buffer initialized")
+  fmt.Println("INFO:  buffer initialized")
 
   // initialize & start writer
   w := NewWriter(&e.Config.Writer, b, e.Workers)
   go w.Run()
-  fmt.Println("...writer initialized & started")
+  fmt.Println("INFO:  writer initialized & started")
 
   // initialize & start listeners
-  fmt.Println("...initilizing listeners...")
+  fmt.Println("INFO:  initilizing listeners...")
   for l_name, cfg := range e.Config.Listener {
     l := NewListener(l_name, cfg, b, e.Workers)
     go l.Run()
-    fmt.Println("....listener " + l_name + " initialized")
+    fmt.Println("INFO:  listener '" + l_name + "' initialized")
   }
 
 

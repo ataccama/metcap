@@ -19,7 +19,40 @@ type Metric struct {
   Fields    map[string]string `json:"fields"`
 }
 
-// generate Metric from JSON (used in Redis buffer and HTTP write API)
+type Metrics []Metric
+
+func (m *Metric) JSON() []byte {
+  out, err := json.Marshal(m)
+  if err != nil {
+    panic(err)
+  }
+  return out
+}
+
+func (m *Metric) Serialize() []byte {
+  out, err := msgpack.Marshal(m)
+  if err != nil {
+    panic(err)
+  }
+  return out
+}
+
+func (m *Metric) Index(name string) string {
+  t := m.Timestamp.UTC()
+  date := []string{strconv.Itoa(t.Year()), strconv.Itoa(int(t.Month())), strconv.Itoa(t.Day())}
+  return name + "_" + strings.Join(date, "-")
+}
+
+func DeserializeMetric(data string) (Metric, error) {
+  var m Metric
+  err := msgpack.Unmarshal([]byte(data), &m)
+  if err != nil {
+    return Metric{}, err
+  }
+  return m, nil
+}
+
+// generate Metric from JSON
 func NewMetricFromJSON(j []byte) (Metric, error) {
   var m Metric
   err := json.Unmarshal(j, &m)
@@ -163,20 +196,4 @@ func parseFields(d map[string]string, mut *[]string) (string, map[string]string)
     }
   }
   return strings.Join(name, ":"), fields
-}
-
-// Create ElasticSearch Document
-//
-func (m *Metric) ElasticDoc() []byte {
-  return []byte{}
-}
-
-// Encode for Redis buffer
-//
-func (m *Metric) JSON() []byte {
-  out, err := json.Marshal(m)
-  if err != nil {
-    panic(err)
-  }
-  return out
 }
