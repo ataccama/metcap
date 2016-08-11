@@ -30,9 +30,9 @@ build: lib binary
 	$(DOCKER) build -t $(IMG_DEV) - < Dockerfile.dev
 	@touch $@
 
-.image:
+.image: bin/$(NAME) bin/$(NAME)-docker
 	@echo BUILDING DOCKER PROD IMAGE
-	$(DOCKER) build -t $(IMG_PROD):$(VERSION) - < Dockerfile
+	$(DOCKER) build -t $(IMG_PROD):$(VERSION) .
 	$(DOCKER) tag $(IMG_PROD):$(VERSION) $(IMG_PROD):latest
 	@touch $@
 
@@ -50,13 +50,14 @@ sources := $(shell find src/$(LIB_PATH) -name '*.go')
 pkg/linux_amd64/$(LIB_PATH).a: pkg $(sources)
 	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && time go install -v -a $(LIB_PATH)'
 
-.PHONY: run
-run:
+.PHONY: test
+test:
 	-$(DOCKER) $(D_RUN) -it $(IMG_DEV) /go/bin/metrics-capacitor
 
 .PHONY: push
 push:
 	$(DOCKER) push $(IMG_PROD):$(VERSION)
+	$(DOCKER) push $(IMG_PROD):latest
 
 .PHONY: enter
 enter: .image.dev

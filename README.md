@@ -31,6 +31,27 @@
 
 See contents of ```etc/``` directory.
 
+## Usage
+
+### Options
+
+```
+# metrics-capacitor -help
+Usage of metrics-capacitor:
+  -config string
+    	Path to config file (default "/etc/metrics-capacitor/main.conf")
+  -cores int
+    	Number of cores to use (default all cores)
+  -daemonize
+    	Run on background
+  -version
+    	Show version
+```
+
+### Metrics
+**TODO**
+
+
 ## Development
 
 Everything is handled by Makefile

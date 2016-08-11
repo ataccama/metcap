@@ -1,3 +1,49 @@
 #!/bin/bash
 
-echo "TODO"
+CFG_MAIN=/etc/metrics-capacitor/main.conf
+CFG_MUT=/etc/metrics-capacitor/graphite_mutator.conf
+
+if [ ! -e ${CFG_MAIN} ]; then
+  cat <<-EOF > ${CFG_MAIN}
+  syslog = false
+  debug = false
+
+  [buffer]
+  socket = "tcp"
+  address = "${REDIS_HOST}:${REDIS_PORT}"
+  db = ${REDIS_DB}
+  timeout = 5
+  wait = 0
+  connections = 100
+  queue = "${REDIS_QUEUE}"
+
+  [writer]
+  urls = [ "${ES_URL}" ]
+  timeout = 10
+  concurrency = ${WRITER_CONCURRENCY}
+  bulk_max = 1000
+  bulk_wait = 10
+  index = "${ES_INDEX}"
+  doc_type = "${ES_TYPE}"
+  ttl = 1
+
+  [listener]
+
+  [listener.influx]
+  port = ${INFLUX_PORT}
+  protocol = "tcp"
+  codec = "influx"
+EOF
+
+  if [ -e ${CFG_MUT} ]; then
+    cat <<-EOF >> ${CFG_MAIN}
+    [listener.graphite]
+    port = ${GRAPHITE_PORT}
+    protocol = "tcp"
+    codec = "graphite"
+EOF
+
+  fi
+fi
+
+exec /bin/metrics-capacitor
