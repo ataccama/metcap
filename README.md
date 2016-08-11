@@ -57,8 +57,27 @@ Usage of metrics-capacitor:
 ```
 
 ### Metrics
-**TODO**
 
+#### Influx data format
+
+- metric without timestamp: ```metric_name key1=foo,key2=bar 10```
+- metric with timestamp: ```metric_name key1=foo,key2=bar 10 1470929084```
+
+#### Graphite data format
+
+- metric without timestamp: ```some.path.to.metric 10```
+- metric with timestamp: ```some.path.to.metric 10 1470929084```
+
+All paths are matched against rules defined in ```mutator_file```. Each line in the file represents one rule. The line has two values separated by ```|||```, the first is RegEx matching the Graphite path, the second describes mapping of values to field names and metric name. The mapping pattern can have following values:
+- ```-```: name of the leaf in path is ommitted
+- ```(int)```: name of the leaf path will be part of ```name``` field. If you use multiple numbers then the ```name``` field will contain all those leaf names separated by ```:```
+- ```(string)``` : name of the leaf will become value for the key specified by the ```(string)```
+
+##### Example
+
+- Metric data: ```stats.counter.test.rate 10```
+- Mutator rule: ```^stats\..*$|||-.type.1.2```
+- Resulting metric: ```{"name": "test:rate", "value": 10, "type": "counter", "@timestamp": "..."}```
 
 ## Development
 
