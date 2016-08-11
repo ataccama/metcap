@@ -4,18 +4,21 @@
 
 ## Features
 
-- [x] switch to Golang :) (v0.1)
-- [x] concurrent bulk writer (v0.2)
-- [x] standalone writer mode (v0.2)
-- [x] TCP listener with influx codec (v0.2)
-- [ ] TCP listener with graphite codec (v0.3)
-- [ ] logger (v0.3)
-- [ ] signal responsiveness (v0.3)
-- [ ] safe shutdown (no metric shall be lost) (v0.3)
-- [ ] HTTP API (v1.0)
-- [ ] HTTP listener with JSON codec (v1.0)
-- [ ] aggregator for old metrics (v1.0)
-- [ ] StatsD codec (v1.?)
+Here you can see the project status at a glance
+
+- [x] (v0.1) switch to Golang :)
+- [x] (v0.2) concurrent bulk writer
+- [x] (v0.2) standalone writer mode
+- [x] (v0.2) TCP listener with influx codec
+- [x] (v0.3) TCP listener with graphite codec
+- [x] (v0.4) standalone listener mode
+- [ ] (v0.4) logger
+- [ ] (v0.4) signal responsiveness
+- [ ] (v0.4) safe shutdown (no metric shall be lost)
+- [ ] (v1.0) HTTP API
+- [ ] (v1.0) HTTP listener with JSON codec
+- [ ] (v1.0) aggregator for old metrics
+- [ ] (v1.?) StatsD codec
 
 ## Prerequisities
 
@@ -25,13 +28,17 @@
 
 ## Installation
 
-**TODO**
+1. Make sure you have Redis and ElasticSearch up and accessible
+2. Download the latest release
+3. Place the ```metrics-capacitor``` binary into your $PATH
 
 ## Configuration
 
 See contents of ```etc/``` directory.
 
 ## Usage
+
+Just start the Engine by invoking ```metrics-capacitor```
 
 ### Options
 

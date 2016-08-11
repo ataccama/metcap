@@ -27,9 +27,10 @@ type BufferConfig struct {
 }
 
 type ListenerConfig struct {
-  Port      int
-  Protocol  string
-  Codec     string
+  Port        int
+  Protocol    string
+  Codec       string
+  MutatorFile string  `toml:"mutator_file"`
 }
 
 type WriterConfig struct {

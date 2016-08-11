@@ -174,10 +174,12 @@ func parseFields(d map[string]string, mut *[]string) (string, map[string]string)
         // iterate thru fields
         for i, field := range field_values {
           switch {
-          case regexp.MustCompile(`[0-9]+`).Match([]byte(field_names[i])):
+          case regexp.MustCompile(`^[0-9]+$`).Match([]byte(field_names[i])):
             name = append(name, field)
-          case regexp.MustCompile(`[a-zA-Z0-9_]+`).Match([]byte(field_names[i])):
+          case regexp.MustCompile(`^[a-zA-Z0-9_]+$`).Match([]byte(field_names[i])):
             fields[field_names[i]] = field
+          case regexp.MustCompile(`^-$`).Match([]byte(field_names[i])):
+            continue
           default:
             continue
           }
