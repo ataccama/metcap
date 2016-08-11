@@ -1,5 +1,17 @@
 # Metrics Capacitor
 
+* [Features](#features)
+* [Prerequisities](#prerequisities)
+* [Installation](#installation)
+* [Configuration](#configuration)
+* [Usage](#usage)
+  * [Options](#options)
+  * [Metrics](#metrics)
+    * [Influx data format](#influx-data-format)
+    * [Graphite data format](#graphite-data-format)
+      * [Example](#example)
+* [Development](#development)
+
 > Metrics processing engine with ElasticSearch as a backend, like Logstash is for logs :)
 
 ## Features
