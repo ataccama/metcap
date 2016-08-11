@@ -1,4 +1,13 @@
-Gemfile.lock
-*.gem
-.bundle/*
-.bundle
+*.o
+*.a
+*.so
+pkg
+bin/metrics-capacitor
+.image*
+!src/metrics-capacitor.go
+src/*
+!src/github.com
+src/github.com/*
+!src/github.com/metrics-capacitor
+src/github.com/metrics-capacitor/*
+!src/github.com/metrics-capacitor/metrics-capacitor
