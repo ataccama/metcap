@@ -29,9 +29,8 @@ Here you can see the project status at a glance
 ## Installation
 
 1. Make sure you have Redis and ElasticSearch up and accessible
-2. Download the latest [release](https://github.com/metrics-capacitor/metrics-capacitor/releases/latest):
-  ```wget -O- -q https://api.github.com/repos/metrics-capacitor/metrics-capacitor/releases/latest | jq -r ".assets[] | select(.name) | .browser_download_url" | xargs sudo wget -O/usr/local/bin/metrics-capacitor```
-3. Place the ```metrics-capacitor``` binary into your ```$PATH```
+2. Download the latest [release](https://github.com/metrics-capacitor/metrics-capacitor/releases/latest) into ```/usr/local/bin```:
+  ```wget -O- -q https://api.github.com/repos/metrics-capacitor/metrics-capacitor/releases/latest | jq -r ".assets[] | select(.name) | .browser_download_url" | xargs sudo wget -O/usr/local/bin/metrics-capacitor && sudo chmod a+x /usr/local/bin/metrics-capacitor```
 
 
 ## Configuration
