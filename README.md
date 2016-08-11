@@ -1,19 +1,21 @@
 # Metrics Capacitor
 
-> Metrics processing engine with ElasticSearch backend, like Logstash is for logs :)
-
-**Work in progress...**
+> Metrics processing engine with ElasticSearch as a backend, like Logstash is for logs :)
 
 ## Features
-- [x] Concurrent bulk writer
-- [x] TCP listener with influx codec
-- [x] TCP listener with graphite codec
-- [ ] HTTP listener with JSON codec
-- [ ] UDP listener with StatsD codec
-- [ ] HTTP API
-- [ ] logger
-- [ ] Signal responsiveness
-- [ ] safe shutdown (no metric shall be lost)
+
+- [x] switch to Golang :) (v0.1)
+- [x] concurrent bulk writer (v0.2)
+- [x] standalone writer mode (v0.2)
+- [x] TCP listener with influx codec (v0.2)
+- [ ] TCP listener with graphite codec (v0.3)
+- [ ] logger (v0.3)
+- [ ] signal responsiveness (v0.3)
+- [ ] safe shutdown (no metric shall be lost) (v0.3)
+- [ ] HTTP API (v1.0)
+- [ ] HTTP listener with JSON codec (v1.0)
+- [ ] aggregator for old metrics (v1.0)
+- [ ] StatsD codec (v1.?)
 
 ## Prerequisities
 
@@ -21,7 +23,7 @@
 - ElasticSearch 2.3
 - Go 1.6 (for development)
 
-## Usage
+## Installation
 
 **TODO**
 

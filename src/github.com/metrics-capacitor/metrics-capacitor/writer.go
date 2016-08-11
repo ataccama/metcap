@@ -46,7 +46,7 @@ func NewWriter(c *WriterConfig, b *Buffer, wg *sync.WaitGroup) *Writer {
 }
 
 func (w *Writer) Run() {
-  pipe_limit := w.Config.BulkMax * w.Config.Concurrency * 1000
+  pipe_limit := w.Config.BulkMax * w.Config.Concurrency * 100
   pipe := make(chan Metric, pipe_limit)
 
   for r := 0; r < w.Config.Concurrency; r++ {
@@ -55,7 +55,10 @@ func (w *Writer) Run() {
 
   for {
     metric := <-pipe
-    req := elastic.NewBulkIndexRequest().Index(metric.Index(w.Config.Index)).Type(w.Config.DocType).Doc(metric.JSON())
+    req := elastic.NewBulkIndexRequest().
+      Index(metric.Index(w.Config.Index)).
+      Type(w.Config.DocType).
+      Doc(string(metric.JSON()))
     w.Processor.Add(req)
   }
 

@@ -36,10 +36,10 @@ type WriterConfig struct {
   Urls        []string
   Timeout     int
   Concurrency int
-  BulkMax     int
-  BulkWait    int
+  BulkMax     int     `toml:"bulk_max"`
+  BulkWait    int     `toml:"bulk_wait"`
   Index       string
-  DocType     string
+  DocType     string  `toml:"doc_type"`
   Ttl         int
 }
 

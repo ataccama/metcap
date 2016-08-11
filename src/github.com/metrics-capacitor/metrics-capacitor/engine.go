@@ -36,13 +36,16 @@ func (e *Engine) Run() {
   fmt.Println("INFO:  writer initialized & started")
 
   // initialize & start listeners
-  fmt.Println("INFO:  initilizing listeners...")
-  for l_name, cfg := range e.Config.Listener {
-    l := NewListener(l_name, cfg, b, e.Workers)
-    go l.Run()
-    fmt.Println("INFO:  listener '" + l_name + "' initialized")
+  if len(e.Config.Listener) > 0 {
+    fmt.Println("INFO:  initilizing listeners...")
+    for l_name, cfg := range e.Config.Listener {
+      l := NewListener(l_name, cfg, b, e.Workers)
+      go l.Run()
+      fmt.Println("INFO:  listener '" + l_name + "' initialized")
+    }
   }
 
+  fmt.Println("INFO:  engine started :-)")
 
   // signal handling
   go func() {
