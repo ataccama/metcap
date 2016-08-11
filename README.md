@@ -6,19 +6,19 @@
 
 Here you can see the project status at a glance
 
-- [x] (v0.1) switch to Golang :)
-- [x] (v0.2) concurrent bulk writer
-- [x] (v0.2) standalone writer mode
-- [x] (v0.2) TCP listener with influx codec
-- [x] (v0.3) TCP listener with graphite codec
-- [ ] (v0.4) standalone listener mode
-- [ ] (v0.4) logger
-- [ ] (v0.4) signal responsiveness
-- [ ] (v0.4) safe shutdown (no metric shall be lost)
-- [ ] (v1.0) HTTP API
-- [ ] (v1.0) HTTP listener with JSON codec
-- [ ] (v1.0) aggregator for old metrics
-- [ ] (v1.?) StatsD codec
+- [x] [v0.1] switch to Golang :)
+- [x] [v0.2] concurrent bulk writer
+- [x] [v0.2] standalone writer mode
+- [x] [v0.2] TCP listener with influx codec
+- [x] [v0.3] TCP listener with graphite codec
+- [ ] [v0.4] standalone listener mode
+- [ ] [v0.4] logger
+- [ ] [v0.4] signal responsiveness
+- [ ] [v0.4] safe shutdown (no metric shall be lost)
+- [ ] [v1.0] HTTP API
+- [ ] [v1.0] HTTP listener with JSON codec
+- [ ] [v1.0] aggregator for old metrics
+- [ ] [v1.?] StatsD codec
 
 ## Prerequisities
 
