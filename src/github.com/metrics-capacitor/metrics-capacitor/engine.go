@@ -4,7 +4,6 @@ import (
   "os"
   "syscall"
   "sync"
-  "fmt"
 )
 
 type Engine struct {
@@ -24,28 +23,28 @@ func NewEngine(configfile string, daemon bool) Engine {
     ExitChan:   make(chan int)}
 }
 
+
 func (e *Engine) Run() {
-  fmt.Println("INFO:  MetricsCapacitor Engine is starting")
+  log := NewLogger(&e.Config.Syslog, &e.Config.Debug)
+  go log.Run()
+  log.Info("Starting engine")
+
   // initialize buffer
-  b := NewBuffer(&e.Config.Buffer)
-  fmt.Println("INFO:  buffer initialized")
+  b := NewBuffer(&e.Config.Buffer, log)
 
   // initialize & start writer
-  w := NewWriter(&e.Config.Writer, b, e.Workers)
-  go w.Run()
-  fmt.Println("INFO:  writer initialized & started")
+  if e.Config.Writer.Urls != nil {
+    w := NewWriter(&e.Config.Writer, b, e.Workers, log)
+    go w.Run()
+  }
 
   // initialize & start listeners
   if len(e.Config.Listener) > 0 {
-    fmt.Println("INFO:  initilizing listeners...")
     for l_name, cfg := range e.Config.Listener {
-      l := NewListener(l_name, cfg, b, e.Workers)
+      l := NewListener(l_name, cfg, b, e.Workers, log)
       go l.Run()
-      fmt.Println("INFO:  listener '" + l_name + "' initialized")
     }
   }
-
-  fmt.Println("INFO:  engine started :-)")
 
   // signal handling
   go func() {

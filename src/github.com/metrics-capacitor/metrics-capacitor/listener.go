@@ -1,7 +1,6 @@
 package metcap
 
 import (
-  "fmt"
   "sync"
   "net"
   "strconv"
@@ -10,50 +9,59 @@ import (
 )
 
 type Listener struct {
-  Name            *string
+  Name            string
   Socket          net.Listener
-  Config          *ListenerConfig
+  Config          ListenerConfig
   Wg              *sync.WaitGroup
   Buffer          *Buffer
   GraphiteMutator *[]string
+  Logger          *Logger
 }
 
-func NewListener(name string, c ListenerConfig, b *Buffer, wg *sync.WaitGroup) Listener {
+func NewListener(name string, c ListenerConfig, b *Buffer, wg *sync.WaitGroup, logger *Logger) Listener {
   wg.Add(1)
 
+  logger.Infof("Starting listener '%s' [%s://0.0.0.0:%d/%s]", name, c.Protocol, c.Port, c.Codec)
   sock, err := net.Listen(c.Protocol, "0.0.0.0:" + strconv.Itoa(c.Port))
   if err != nil {
-    panic(err)
+    logger.Alertf("Couldn't start listener '%s': %v", name, err)
   }
 
   var mut []string
   if c.Codec == "graphite" {
+    logger.Debug("Detected graphite codec, loading mutator config")
     mut_file, err := os.Open(c.MutatorFile)
-    if err == nil {
+    if err != nil {
+        logger.Alertf("Couldn't open mutator config: %v", err)
+    } else {
       scn := bufio.NewScanner(mut_file)
       for scn.Scan() {
         mut = append(mut, scn.Text())
       }
+      logger.Debug("Loaded mutator rules")
     }
   }
 
   return Listener{
-    Name: &name,
+    Name: name,
     Socket: sock,
-    Config: &c,
+    Config: c,
     Wg: wg,
     Buffer: b,
-    GraphiteMutator: &mut}
+    GraphiteMutator: &mut,
+    Logger: logger}
 }
 
 func (l *Listener) Run() {
+  l.Logger.Infof("Starting to accept connections on '%s' listener", l.Name)
   defer l.Stop()
   for {
-    connection, err := l.Socket.Accept()
+    c, err := l.Socket.Accept()
     if err == nil {
-      go l.handleConnection(connection)
+      l.Logger.Debugf("Accepted connection on '%s' from %s", l.Name, c.RemoteAddr().String())
+      go l.handleConnection(c)
     } else {
-      fmt.Println("ERROR: Can't accept connection:" + err.Error())
+      l.Logger.Errorf("Can't accept connection: %v", err)
     }
   }
 }
@@ -69,12 +77,13 @@ func (l *Listener) handleConnection(conn net.Conn) {
   for scn.Scan() {
     line := scn.Text()
     metric, err := NewMetricFromLine(line, l.Config.Codec, l.GraphiteMutator)
-    if err != nil {
-      fmt.Println("ERROR: Can't parse metric data:" + err.Error())
-    }
-    err = l.Buffer.Push(&metric)
-    if err != nil {
-      fmt.Println("ERROR: Can't push metric into Redis buffer:" + err.Error())
+    if err == nil {
+      err = l.Buffer.Push(&metric)
+      if err != nil {
+        l.Logger.Errorf("Can't push metric into Redis buffer: %v", err)
+      }
+    } else {
+      l.Logger.Errorf("%v", err)
     }
   }
 }

@@ -10,10 +10,12 @@ type Buffer struct {
   Queue     string
   Wait      int
   ExitChan  chan bool
+  Logger    *Logger
 }
 
 // initialize buffer
-func NewBuffer(c *BufferConfig) *Buffer {
+func NewBuffer(c *BufferConfig, logger *Logger) *Buffer {
+  logger.Infof("Initializing Redis buffer [tcp://%s/%d]", c.Address, c.DB)
   return &Buffer{
     Redis: redis.NewClient(&redis.Options{
       Network: c.Socket,

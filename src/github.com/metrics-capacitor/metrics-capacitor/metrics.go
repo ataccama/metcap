@@ -64,30 +64,49 @@ func NewMetricFromJSON(j []byte) (Metric, error) {
 
 // generate Metric from Graphite data listener
 func NewMetricFromLine(line string, codec string, mut *[]string) (Metric, error) {
-  // dissect the line
   var pat string
+
   switch codec {
   case "graphite":
     pat = `^(?P<path>[a-zA-Z0-9_\-\.]+) (?P<value>[0-9\.]+)(\ (?P<timestamp>[0-9]{10,13}))?$`
   case "influx":
     pat = `^(?P<name>[a-zA-Z0-9_\-\.]+) (?P<fields>[a-zA-Z0-9,_\-\.\=]+) (?P<value>[0-9\.]+)( (?P<timestamp>\d{10,13}))?\s*$`
   }
-  re := regexp.MustCompile(pat)
-  match := re.FindStringSubmatch(line)
-  dissected := map[string]string{}
-  for i, n := range re.SubexpNames() {
-    dissected[n] = match[i]
+
+  re, err := regexp.Compile(pat)
+
+  if err != nil {
+    return Metric{}, err
   }
 
-  timestamp := parseTimestamp(dissected)
-  value := parseValue(dissected)
-  name, fields := parseFields(dissected, mut)
+  if re.Match([]byte(line)) {
+    match := re.FindStringSubmatch(line)
+    dissected := map[string]string{}
 
-  return Metric{
-    Name: name,
-    Timestamp: timestamp,
-    Value: value,
-    Fields: fields}, nil
+    for i, n := range re.SubexpNames() {
+      dissected[n] = match[i]
+    }
+
+    timestamp := parseTimestamp(dissected)
+
+    name, fields, err := parseFields(dissected, mut)
+    if err != nil {
+      return Metric{}, err
+    }
+
+    value, err := parseValue(dissected)
+    if err != nil {
+      return Metric{}, err
+    }
+
+    return Metric{
+      Name: name,
+      Timestamp: timestamp,
+      Value: value,
+      Fields: fields}, nil
+  } else {
+    return Metric{}, &NewMetricFromLineError{"Failed to ingest metric", line}
+  }
 }
 
 // helper function to parse timestamp into time.Time
@@ -136,20 +155,19 @@ func parseTimestamp(d map[string]string) (time.Time) {
 }
 
 // helper function to parse value as float64
-func parseValue(d map[string]string) (float64) {
+func parseValue(d map[string]string) (float64, error) {
   var (
     value float64
     err   error
   )
-  value, err = strconv.ParseFloat(d["value"], 64)
-  if err != nil {
-    value = float64(0)
+  if value, err = strconv.ParseFloat(d["value"], 64); err != nil {
+    return float64(0), &ParserError{"Failed to parse value", d["value"]}
   }
-  return value
+  return value, nil
 }
 
 // helper function to parse metric name and fields
-func parseFields(d map[string]string, mut *[]string) (string, map[string]string) {
+func parseFields(d map[string]string, mut *[]string) (string, map[string]string, error) {
   name := []string{}
   fields := make(map[string]string)
 
@@ -160,7 +178,6 @@ func parseFields(d map[string]string, mut *[]string) (string, map[string]string)
       mut_rule := strings.Split(lineRule, "|||")
       mut_re, err := regexp.Compile(mut_rule[0])
       if err != nil {
-        fmt.Println("ERROR: Can't compile Graphite mutator rule, can't process metric")
         continue
       }
       // try to match metric path with a mutator rule
@@ -168,7 +185,6 @@ func parseFields(d map[string]string, mut *[]string) (string, map[string]string)
         field_values := strings.Split(d["path"], ".")
         field_names := strings.Split(mut_rule[1], ".")
         if len(field_values) != len(field_names) {
-          fmt.Println("ERROR: Unbalanced count of metric and mutator rule fields, skipping")
           continue
         }
         // iterate thru fields
@@ -197,5 +213,31 @@ func parseFields(d map[string]string, mut *[]string) (string, map[string]string)
       }
     }
   }
-  return strings.Join(name, ":"), fields
+  if len(name) == 0 {
+    return "", make(map[string]string), &ParserError{"Failed to parse metric name", name}
+  }
+  if len(fields) == 0 {
+    return "", make(map[string]string), &ParserError{"Failed to parse metric name", fields}
+  }
+  return strings.Join(name, ":"), fields, nil
+}
+
+// Errors
+
+type NewMetricFromLineError struct {
+  msg   string
+  line  string
+}
+
+func (e *NewMetricFromLineError) Error() string {
+  return fmt.Sprintf("%s (LINE: %s)", e.msg, e.line)
+}
+
+type ParserError struct {
+  msg   string
+  src   interface{}
+}
+
+func (e *ParserError) Error() string {
+  return fmt.Sprintf("%s - %v", e.msg, e.src)
 }

@@ -36,7 +36,7 @@ build: lib binary
 	$(DOCKER) tag $(IMG_PROD):$(VERSION) $(IMG_PROD):latest
 	@touch $@
 
-bin/$(NAME): .image.dev pkg/linux_amd64/$(LIB_PATH).a $(NAME).go
+bin/$(NAME): .image.dev pkg/linux_amd64/$(LIB_PATH).a $(NAME).go VERSION
 	@echo "\nBUILDING SOURCE"
 	@echo "Version:\t$(VERSION)"
 	@echo "Build:\t\t$(BUILD)\n"
