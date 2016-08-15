@@ -57,7 +57,7 @@ func (l *Logger) Run() error {
 
 func (l *Logger) Log(message string, level syslog.Priority) {
   if *l.syslog {
-
+    // TODO
   } else {
     var txt_lvl string
 

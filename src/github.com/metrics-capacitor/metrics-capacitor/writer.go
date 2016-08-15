@@ -14,13 +14,14 @@ type Writer struct {
   Elastic   *elastic.Client
   Processor *elastic.BulkProcessor
   Logger    *Logger
+  ExitChan  chan int
 }
 
 func NewWriter(c *WriterConfig, b *Buffer, wg *sync.WaitGroup, logger *Logger) *Writer {
   logger.Info("Initializing writer module")
   wg.Add(1)
 
-  logger.Debugf("Connecting to ElasticSearch [%v]", c.Urls)
+  logger.Debugf("Connecting to ElasticSearch %v", c.Urls)
   es, err := elastic.NewClient(elastic.SetURL(c.Urls...))
   if err != nil {
     logger.Alertf("Can't connect to ElasticSearch: %v", err)
@@ -46,11 +47,13 @@ func NewWriter(c *WriterConfig, b *Buffer, wg *sync.WaitGroup, logger *Logger) *
     Buffer: b,
     Elastic: es,
     Processor: processor,
-    Logger: logger}
+    Logger: logger,
+    ExitChan: make(chan int)}
 }
 
 func (w *Writer) Run() {
   w.Logger.Info("Starting writer module")
+  defer w.Stop()
 
   pipe_limit := w.Config.BulkMax * w.Config.Concurrency * 100
   pipe := make(chan Metric, pipe_limit)
@@ -82,12 +85,17 @@ func (w *Writer) Stop() {
 
 func (w *Writer) readFromBuffer(p chan Metric)  {
   for {
-    metric, err := w.Buffer.Pop()
-    if err != nil {
-      w.Logger.Error("Failed to BLPOP metric from buffer: " + err.Error())
-    } else {
-      p <- metric
-      w.Logger.Debug("Popped metric from buffer")
+    select {
+    case <-w.ExitChan:
+      break
+    default:
+      metric, err := w.Buffer.Pop()
+      if err != nil {
+        w.Logger.Error("Failed to BLPOP metric from buffer: " + err.Error())
+      } else {
+        p <- metric
+        w.Logger.Debug("Popped metric from buffer")
+      }
     }
   }
 

@@ -1,5 +1,11 @@
 # Metrics Capacitor
 
+> Metrics processing engine with ElasticSearch as a backend, like Logstash is for logs :)
+
+Development has been supported by:
+- [NeuronAD LTD](http://www.neuronad.com/)
+- [PRO-ZETA a.s.](http://www.prozeta.eu/)
+
 * [Features](#features)
 * [Prerequisities](#prerequisities)
 * [Installation](#installation)
@@ -11,8 +17,6 @@
     * [Graphite data format](#graphite-data-format)
       * [Example](#example)
 * [Development](#development)
-
-> Metrics processing engine with ElasticSearch as a backend, like Logstash is for logs :)
 
 ## Features
 
