@@ -6,6 +6,10 @@ Development has been supported by:
 - [NeuronAD LTD](http://www.neuronad.com/)
 - [PRO-ZETA a.s.](http://www.prozeta.eu/)
 
+----------------------------------------------------------------------
+
+## Table of contents
+
 * [Features](#features)
 * [Prerequisities](#prerequisities)
 * [Installation](#installation)
