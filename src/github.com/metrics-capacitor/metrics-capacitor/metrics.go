@@ -176,6 +176,7 @@ func parseValue(d map[string]string) (float64, error) {
 func parseFields(d map[string]string, mut *[]string) (string, map[string]string, error) {
 	name := []string{}
 	fields := make(map[string]string)
+	mut_rule_match := false
 
 	// check if we have graphite path
 	if _, ok := d["path"]; ok {
@@ -188,25 +189,39 @@ func parseFields(d map[string]string, mut *[]string) (string, map[string]string,
 			}
 			// try to match metric path with a mutator rule
 			if mut_re.Match([]byte(d["path"])) {
+				mut_rule_match = true
 				field_values := strings.Split(d["path"], ".")
 				field_names := strings.Split(mut_rule[1], ".")
-				if len(field_values) != len(field_names) {
-					continue
-				}
+
 				// iterate thru fields
 				for i, field := range field_values {
 					switch {
-					case regexp.MustCompile(`^[0-9]+$`).Match([]byte(field_names[i])):
-						name = append(name, field)
-					case regexp.MustCompile(`^[a-zA-Z0-9_]+$`).Match([]byte(field_names[i])):
-						fields[field_names[i]] = field
-					case regexp.MustCompile(`^-$`).Match([]byte(field_names[i])):
-						continue
-					default:
-						continue
+						case regexp.MustCompile(`^[0-9]+$`).Match([]byte(field_names[i])):
+							// numeric rule -> name
+							name = append(name, field)
+						case regexp.MustCompile(`^[a-zA-Z0-9_]+\+$`).Match([]byte(field_names[i])):
+							// string rule with catch-all flag -> catch-all field
+							f := strings.TrimRight(field_names[i], "+")
+							fields[f] = strings.Join(field_values[i-1:], ":")
+							break
+						case regexp.MustCompile(`^[a-zA-Z0-9_]+$`).Match([]byte(field_names[i])):
+							// string rule -> field
+							fields[field_names[i]] = field
+						case regexp.MustCompile(`^\+$`).Match([]byte(field_names[i])):
+							// catch-all flag -> fill name
+							name = append(name, strings.Join(field_values[i-1:], ":"))
+							break
+						case regexp.MustCompile(`^-$`).Match([]byte(field_names[i])):
+							// no-catch flag -> skip
+							continue
 					}
 				}
+				break
 			}
+		}
+
+		if ! mut_rule_match {
+			name = append(name, strings.Join(strings.Split(d["path"], "."), ":"))
 		}
 		// not Graphite? then it must be only Influx (for now :))
 	} else {
@@ -221,9 +236,6 @@ func parseFields(d map[string]string, mut *[]string) (string, map[string]string,
 	}
 	if len(name) == 0 {
 		return "", make(map[string]string), &ParserError{"Failed to parse metric name", name}
-	}
-	if len(fields) == 0 {
-		return "", make(map[string]string), &ParserError{"Failed to parse metric fields", fields}
 	}
 	return strings.Join(name, ":"), fields, nil
 }
