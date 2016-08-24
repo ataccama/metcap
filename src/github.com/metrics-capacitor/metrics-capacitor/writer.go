@@ -17,6 +17,47 @@ type Writer struct {
 	ExitChan  chan int
 }
 
+var ES_TEMPLATE string = `{
+  "template": "*",
+  "mappings": {
+    "raw": {
+      "_source": {
+        "enabled": false
+      },
+      "dynamic_templates": [
+        {
+          "fields": {
+            "mapping": {
+              "index": "not_analyzed",
+              "type": "string",
+              "copy_to": "@uniq"
+            },
+            "path_match": "fields.*"
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": {
+          "type": "date",
+          "format": "strict_date_optional_time||epoch_millis"
+        },
+        "@uniq": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "name": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "value": {
+          "type": "double",
+          "index": "not_analyzed"
+        }
+      }
+    }
+  }
+}`
+
 func NewWriter(c *WriterConfig, b *Buffer, wg *sync.WaitGroup, logger *Logger) *Writer {
 	logger.Info("Initializing writer module")
 	wg.Add(1)
@@ -57,6 +98,52 @@ func (w *Writer) Run() {
 
 	pipe_limit := w.Config.BulkMax * w.Config.Concurrency * 100
 	pipe := make(chan Metric, pipe_limit)
+
+	tmpl_exists, err := w.Elastic.IndexTemplateExists(w.Config.Index).Do()
+
+	if err != nil {
+
+		w.Logger.Errorf("Error checking index mapping template existence: %v", err)
+
+	} else {
+
+		if ! tmpl_exists {
+
+			w.Logger.Infof("Index mapping template doesn't exits, creating '%s'", w.Config.Index)
+			tmpl := w.Elastic.IndexPutTemplate(w.Config.Index).
+				Create(true).
+				BodyString(ES_TEMPLATE).
+				Order(0)
+
+			err := tmpl.Validate()
+			if err != nil {
+
+				w.Logger.Errorf("Failed to validate the index mapping template: %v", err)
+
+			} else {
+
+				res, err := tmpl.Do()
+
+				if err != nil {
+
+					w.Logger.Errorf("Failed to put the index mapping template: %v", err)
+
+				} else {
+
+					if ! res.Acknowledged {
+						w.Logger.Error("Failed to acknowledge the new index mapping template")
+					} else {
+						w.Logger.Info("New index mapping template acknowledged")
+					}
+
+				}
+
+			}
+
+		}
+
+	}
+
 
 	for r := 0; r < w.Config.Concurrency; r++ {
 		w.Logger.Debugf("Starting writer buffer-reader %2d", r+1)

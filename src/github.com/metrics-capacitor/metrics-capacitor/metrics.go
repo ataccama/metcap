@@ -40,8 +40,7 @@ func (m *Metric) Serialize() []byte {
 
 func (m *Metric) Index(name string) string {
 	t := m.Timestamp.UTC()
-	date := []string{strconv.Itoa(t.Year()), strconv.Itoa(int(t.Month())), strconv.Itoa(t.Day())}
-	return name + "_" + strings.Join(date, "-")
+	return fmt.Sprintf("%s-%d.%02d.%02d", name, strconv.Itoa(t.Year()), strconv.Itoa(int(t.Month())), strconv.Itoa(t.Day()))
 }
 
 func DeserializeMetric(data string) (Metric, error) {
