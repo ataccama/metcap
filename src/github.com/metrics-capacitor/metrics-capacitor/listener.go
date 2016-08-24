@@ -78,9 +78,13 @@ func (l *Listener) handleConnection(conn net.Conn) {
 		line := scn.Text()
 		metric, err := NewMetricFromLine(line, l.Config.Codec, l.GraphiteMutator)
 		if err == nil {
-			err = l.Buffer.Push(&metric)
-			if err != nil {
-				l.Logger.Errorf("Can't push metric into Redis buffer: %v", err)
+			if metric.OK {
+				err = l.Buffer.Push(&metric)
+				if err != nil {
+					l.Logger.Errorf("Can't push metric into Redis buffer: %v", err)
+				}
+			} else {
+				l.Logger.Debugf("Empty line, skipping")
 			}
 		} else {
 			l.Logger.Errorf("%v", err)

@@ -17,6 +17,7 @@ type Metric struct {
 	Timestamp time.Time         `json:"@timestamp"`
 	Value     float64           `json:"value"`
 	Fields    map[string]string `json:"fields"`
+	OK				bool							`json:"ok"`
 }
 
 type Metrics []Metric
@@ -76,7 +77,11 @@ func NewMetricFromLine(line string, codec string, mut *[]string) (Metric, error)
 	re, err := regexp.Compile(pat)
 
 	if err != nil {
-		return Metric{}, err
+		return Metric{OK: false}, err
+	}
+
+	if re_empty_line := regexp.MustCompile(`^$`); re_empty_line.Match([]byte(line)) {
+		return Metric{OK: false}, nil
 	}
 
 	if re.Match([]byte(line)) {
@@ -91,21 +96,22 @@ func NewMetricFromLine(line string, codec string, mut *[]string) (Metric, error)
 
 		name, fields, err := parseFields(dissected, mut)
 		if err != nil {
-			return Metric{}, err
+			return Metric{OK: false}, err
 		}
 
 		value, err := parseValue(dissected)
 		if err != nil {
-			return Metric{}, err
+			return Metric{OK: false}, err
 		}
 
 		return Metric{
+			OK:		 		 true,
 			Name:      name,
 			Timestamp: timestamp,
 			Value:     value,
 			Fields:    fields}, nil
 	} else {
-		return Metric{}, &NewMetricFromLineError{"Failed to ingest metric", line}
+		return Metric{OK: false}, &NewMetricFromLineError{"Failed to ingest metric", line}
 	}
 }
 
@@ -217,7 +223,7 @@ func parseFields(d map[string]string, mut *[]string) (string, map[string]string,
 		return "", make(map[string]string), &ParserError{"Failed to parse metric name", name}
 	}
 	if len(fields) == 0 {
-		return "", make(map[string]string), &ParserError{"Failed to parse metric name", fields}
+		return "", make(map[string]string), &ParserError{"Failed to parse metric fields", fields}
 	}
 	return strings.Join(name, ":"), fields, nil
 }
