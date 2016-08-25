@@ -22,7 +22,7 @@ func NewListener(name string, c ListenerConfig, b *Buffer, wg *sync.WaitGroup, l
 	wg.Add(1)
 
 	logger.Infof("Starting listener '%s' [%s://0.0.0.0:%d/%s]", name, c.Protocol, c.Port, c.Codec)
-	sock, err := net.Listen(c.Protocol, "0.0.0.0:"+strconv.Itoa(c.Port))
+	sock, err := net.Listen("tcp", ":"+strconv.Itoa(c.Port))
 	if err != nil {
 		logger.Alertf("Couldn't start listener '%s': %v", name, err)
 	}
@@ -73,6 +73,7 @@ func (l *Listener) Stop() {
 
 func (l *Listener) handleConnection(conn net.Conn) {
 	defer conn.Close()
+	defer l.Logger.Debugf("Closed connection on '%s' from %s", l.Name, conn.RemoteAddr().String())
 	scn := bufio.NewScanner(conn)
 	for scn.Scan() {
 		line := scn.Text()
@@ -90,4 +91,5 @@ func (l *Listener) handleConnection(conn net.Conn) {
 			l.Logger.Errorf("%v", err)
 		}
 	}
+
 }

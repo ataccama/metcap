@@ -66,9 +66,9 @@ func NewMetricFromLine(line string, codec string, mut *[]string) (Metric, error)
 
 	switch codec {
 	case "graphite":
-		pat = `^(?P<path>[a-zA-Z0-9_\-\.]+) (?P<value>[0-9\.]+)(\ (?P<timestamp>[0-9]{10,13}))?$`
+		pat = `^(?P<path>[a-zA-Z0-9_\-\.]+) (?P<value>-?[0-9\.]+)(\ (?P<timestamp>[0-9]{10,13}))?$`
 	case "influx":
-		pat = `^(?P<name>[a-zA-Z0-9_\-\.]+) (?P<fields>[a-zA-Z0-9,_\-\.\=]+) (?P<value>[0-9\.]+)( (?P<timestamp>\d{10,13}))?\s*$`
+		pat = `^(?P<name>[a-zA-Z0-9_\-\.]+) (?P<fields>[a-zA-Z0-9,_\-\.\=]+) (?P<value>-?[0-9\.]+)( (?P<timestamp>\d{10,13}))?\s*$`
 	}
 
 	re, err := regexp.Compile(pat)

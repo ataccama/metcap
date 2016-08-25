@@ -86,11 +86,22 @@ All paths are matched against rules defined in ```mutator_file```. Each line in 
 - ```(int)```: name of the leaf path will be part of ```name``` field. If you use multiple numbers then the ```name``` field will contain all those leaf names separated by ```:```
 - ```(string)``` : name of the leaf will become value for the key specified by the ```(string)```
 
+Additionally you can use a special flag ```+``` at the end of each line. It can be used in two ways:
+- **standalone** - ie. ```test.+``` - this will capture all the remaining path leaves and put them into *name* while putting the top leaf into *test* field.
+- **with string** - ie. ```1.data+``` - this will capture all the remaining path leaves and put them into *data* field while putting the top leaf into *name*.
+
 ##### Example
 
-- Metric data: ```stats.counter.test.rate 10```
-- Mutator rule: ```^stats\..*$|||-.type.1.2```
-- Resulting metric: ```{"name": "test:rate", "value": 10, "type": "counter", "@timestamp": "..."}```
+Metric data: ```stats.counter.test.alpha.rate 10```
+
+
+- Mutator rule: ```^stats\.|||-.type.section.+```
+- Resulting metric: ```{"name": "alpha:rate", "section": "test", "value": 10, "type": "counter", "@timestamp": "..."}```
+
+
+- Mutator rule: ```^stats\.|||-.type.1.statistic+```
+- Resulting metric: ```{"name": "test", "statistic": "alpha:rate", "value": 10, "type": "counter", "@timestamp": "..."}```
+
 
 ## Development
 
