@@ -69,7 +69,7 @@ func NewWriter(c *WriterConfig, b *Buffer, wg *sync.WaitGroup, logger *Logger) *
 	}
 	logger.Debug("Successfully connected to ElasticSearch")
 
-	logger.Debug("Setting up buffer-readers")
+	logger.Debug("Setting up bulk-processor")
 	processor, err := elastic.NewBulkProcessorService(es).
 		BulkActions(c.BulkMax).
 		BulkSize(-1).

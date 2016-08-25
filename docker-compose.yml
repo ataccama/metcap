@@ -3,7 +3,16 @@ version: '2'
 services:
   es:
     image: elasticsearch
-    network_mode: host
+    ports:
+      - "9200:9200"
   redis:
     image: redis
-    network_mode: host
+    ports:
+      - "6379:6379"
+  engine:
+    build: .
+    ports:
+      - "8001:8001"
+      - "8002:8002"
+    volumes:
+      - "./etc:/etc/metrics-capacitor"

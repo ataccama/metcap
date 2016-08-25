@@ -25,6 +25,10 @@ binary:	bin/$(NAME)
 .PHONY: build
 build: lib binary
 
+.PHONY: compose
+compose: lib binary
+	docker-compose up --abort-on-container-exit --force-recreate --remove-orphans --build
+
 .image.dev:
 	@echo BUILDING DOCKER DEV IMAGE
 	$(DOCKER) build -t $(IMG_DEV) - < Dockerfile.dev
