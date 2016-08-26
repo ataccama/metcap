@@ -46,13 +46,12 @@ func (w *Writer) Run() {
 
 	var ES_TEMPLATE string = `{"template":"` + w.Config.Index + `*","mappings":{"raw":{"_source":{"enabled":false},"dynamic_templates":[{"fields":{"mapping":{"index":"not_analyzed","type":"string","copy_to":"@uniq"},"path_match":"fields.*"}}],"properties":{"@timestamp":{"type":"date","format":"strict_date_optional_time||epoch_millis"},"@uniq":{"type":"string","index":"not_analyzed"},"name":{"type":"string","index":"not_analyzed"},"value":{"type":"double","index":"not_analyzed"}}}}}`
 
-	pipe_limit := w.Config.BulkMax * w.Config.Concurrency * 100
-	pipe := make(chan Metric, pipe_limit)
+	pipe := make(chan Metric, w.Config.BulkMax*w.Config.Concurrency*100)
 
 	tmpl_exists, err := w.Elastic.IndexTemplateExists(w.Config.Index).Do()
 
 	if err != nil {
-		w.Logger.Errorf("Error checking index mapping template existence: %v", err)
+		w.Logger.Alertf("Error checking index mapping template existence: %v", err)
 	} else {
 		if ! tmpl_exists {
 			w.Logger.Infof("Index mapping template doesn't exits, creating '%s'", w.Config.Index)
@@ -89,13 +88,9 @@ func (w *Writer) Run() {
 		Stats(true).
 		Workers(w.Config.Concurrency).Do()
 
-	// w.Processor.Do()
-
 	if err != nil {
 		w.Logger.Alertf("Failed to setup bulk-processor: %v", err)
 	}
-
-
 
 	for r := 0; r < w.Config.Concurrency; r++ {
 		w.Logger.Debugf("Starting writer buffer-reader %2d", r+1)
@@ -140,11 +135,14 @@ func (w *Writer) readFromBuffer(p chan Metric) {
 }
 
 func (w *Writer) hookBeforeCommit(id int64, reqs []elastic.BulkableRequest) {
-	w.Logger.Debugf("before-reqs %d: %v", id, reqs)
+	w.Logger.Debugf("Writer committing %d requests", len(reqs))
 }
 
 func (w *Writer) hookAfterCommit(id int64, reqs []elastic.BulkableRequest, res *elastic.BulkResponse, err error) {
-	w.Logger.Debugf("after-reqs %d: %v", id, res)
+	w.Logger.Infof("Writer successfully commited %d metrics", len(res.Succeeded()))
+	if len(res.Failed()) > 0 {
+		w.Logger.Errorf("Writer failed to commit %d metrics", len(res.Failed()))
+	}
 	if err != nil {
 		w.Logger.Error(err.Error())
 	}
