@@ -15,7 +15,7 @@ type Buffer struct {
 
 // initialize buffer
 func NewBuffer(c *BufferConfig, logger *Logger) *Buffer {
-	logger.Infof("Initializing Redis buffer [tcp://%s/%d]", c.Address, c.DB)
+	logger.Infof("[engine] Initializing Redis connection [tcp://%s/%d]", c.Address, c.DB)
 	return &Buffer{
 		Redis: redis.NewClient(&redis.Options{
 			Network:     c.Socket,

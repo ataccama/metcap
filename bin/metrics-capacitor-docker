@@ -47,6 +47,7 @@ EOF
 fi
 
 echo 'Waiting for ElasticSearch to come up...'
-while ! nc -w 1 es 9200; do echo -n .; done
+while ! nc -w 1 es 9200; do echo -n .; sleep 1; done
+echo
 
 exec /bin/metrics-capacitor
