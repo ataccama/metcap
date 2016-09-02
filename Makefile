@@ -6,6 +6,10 @@ VERSION=$(shell cat VERSION)
 PATH=$(shell pwd -P)
 BUILD=$(shell git rev-parse --short HEAD)
 DOCKER=$(shell which docker)
+DOCKER_COMPOSE=$(shell which docker-compose)
+ECHO=$(shell which echo)
+RM=$(shell which rm)
+TOUCH=$(shell which touch)
 LDFLAGS=--ldflags "-X main.Version=$(VERSION) -X main.Build=$(BUILD)"
 D_RUN=run --rm -h $(IMG_DEV) --name $(IMG_DEV) --net host -v "$(PATH)/metrics-capacitor.go:/go/metrics-capacitor.go" -v "$(PATH)/bin:/go/bin" -v "$(PATH)/src:/go/src" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/metrics-capacitor"
 # D_RUN=run --rm -h $(IMG_DEV) --name $(IMG_DEV) -v "$(PATH)/metrics-capacitor.go:/go/metrics-capacitor.go" -v "$(PATH)/bin:/go/bin" -v "$(PATH)/src:/go/src" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/metrics-capacitor"
@@ -29,31 +33,32 @@ build: lib binary
 
 .PHONY: compose
 compose: lib binary
-	docker-compose up --abort-on-container-exit --force-recreate --remove-orphans --build
+	$(DOCKER_COMPOSE) up --abort-on-container-exit --force-recreate --remove-orphans --build
 
 .image.dev:
-	@echo BUILDING DOCKER DEV IMAGE
+	@$(ECHO) BUILDING DOCKER DEV IMAGE
 	$(DOCKER) build -t $(IMG_DEV) - < Dockerfile.dev
-	@touch $@
+	@$(TOUCH) $@
 
 .image: bin/$(NAME) bin/$(NAME)-docker
-	@echo BUILDING DOCKER PROD IMAGE
+	@$(ECHO) BUILDING DOCKER PROD IMAGE
 	$(DOCKER) build -t $(IMG_PROD):$(VERSION) .
 	$(DOCKER) tag $(IMG_PROD):$(VERSION) $(IMG_PROD):latest
-	@touch $@
+	@$(TOUCH) $@
 
 bin/$(NAME): .image.dev pkg/linux_amd64/$(LIB_PATH).a $(NAME).go VERSION
-	@echo "\nBUILDING SOURCE"
-	@echo "Version:\t$(VERSION)"
-	@echo "Build:\t\t$(BUILD)\n"
+	@$(ECHO) -e "\nBUILDING SOURCE"
+	@$(ECHO) -e "Version:\t$(VERSION)"
+	@$(ECHO) -e "Build:\t\t$(BUILD)\n"
 	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && time go build -v $(LDFLAGS) -o $@ /go/$(NAME).go'
 
 pkg:
-	@echo GETTING GO IMPORTS
+	@$(ECHO) GETTING GO IMPORTS
 	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && go get -v $(LIB_PATH)'
 
 sources := $(shell find src/$(LIB_PATH) -name '*.go')
 pkg/linux_amd64/$(LIB_PATH).a: pkg $(sources)
+	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && time go fmt $(LIB_PATH)'
 	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && time go install -v -a $(LIB_PATH)'
 
 .PHONY: test
@@ -67,16 +72,16 @@ push:
 
 .PHONY: enter
 enter: .image.dev
-	@echo ENTERING CONTAINER
+	@$(ECHO) ENTERING CONTAINER
 	$(DOCKER) $(D_RUN) -it $(IMG_DEV)
 
 .PHONY: rmi
 rmi:
-	@echo REMOVING IMAGE
+	@$(ECHO) REMOVING IMAGE
 	$(DOCKER) rmi $(IMG_DEV)
-	rm -f .image.dev
+	$(RM) -f .image.dev
 
 .PHONY: clean
 clean: rmi
-	@echo CLEANING
-	rm -rf pkg bin/$(NAME)
+	@$(ECHO) CLEANING
+	$(RM) -rf pkg bin/$(NAME)

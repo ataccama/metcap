@@ -12,12 +12,12 @@ type Logger struct {
 	cInfo  chan string
 	cErr   chan string
 	cAlert chan string
-	debug  *bool
+	debug  *Flag
 	syslog *bool
 	logger *log.Logger
 }
 
-func NewLogger(syslog_enabled *bool, debug_enabled *bool) *Logger {
+func NewLogger(syslog_enabled *bool, debugFlag *Flag) *Logger {
 	var flags int = log.Ldate | log.Ltime | log.Lmicroseconds
 	var logger *log.Logger
 	var err error
@@ -35,7 +35,7 @@ func NewLogger(syslog_enabled *bool, debug_enabled *bool) *Logger {
 		cInfo:  make(chan string),
 		cErr:   make(chan string),
 		cAlert: make(chan string),
-		debug:  debug_enabled,
+		debug:  debugFlag,
 		syslog: syslog_enabled,
 		logger: logger}
 }
@@ -77,12 +77,12 @@ func (l *Logger) Log(message string, level syslog.Priority) {
 }
 
 func (l *Logger) Debug(m string) {
-	if *l.debug {
+	if l.debug.Get() {
 		l.cDebug <- m
 	}
 }
 func (l *Logger) Debugf(f string, v ...interface{}) {
-	if *l.debug {
+	if l.debug.Get() {
 		l.cDebug <- fmt.Sprintf(f, v...)
 	}
 }

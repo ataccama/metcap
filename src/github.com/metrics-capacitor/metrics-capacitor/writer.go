@@ -9,75 +9,74 @@ import (
 
 type Writer struct {
 	Config    *WriterConfig
-	Wg        *sync.WaitGroup
-	Buffer    *Buffer
+	ModuleWg  *sync.WaitGroup
+	Transport Transport
 	Elastic   *elastic.Client
 	Processor *elastic.BulkProcessor
 	Logger    *Logger
-	ExitChan  <-chan bool
+	ExitFlag  *Flag
 }
 
-
-
-func NewWriter(c *WriterConfig, b *Buffer, wg *sync.WaitGroup, logger *Logger, exit_chan <-chan bool) *Writer {
+func NewWriter(c *WriterConfig, t Transport, module_wg *sync.WaitGroup, logger *Logger, exitFlag *Flag) (*Writer, error) {
 	logger.Info("[writer] Initializing module")
-	wg.Add(1)
 
-	logger.Debugf("[writer] Connecting to ElasticSearch %v", c.Urls)
-	es, err := elastic.NewClient(elastic.SetURL(c.Urls...))
+	logger.Debugf("[writer] Connecting to ElasticSearch %v", c.URLs)
+	es, err := elastic.NewClient(elastic.SetURL(c.URLs...))
 	if err != nil {
 		logger.Alertf("[writer] Can't connect to ElasticSearch: %v", err)
+		return &Writer{}, err
 	}
 	logger.Debug("[writer] Successfully connected to ElasticSearch")
 
-	return &Writer{
-		Config:    c,
-		Wg:        wg,
-		Buffer:    b,
-		Elastic:   es,
-		Logger:    logger,
-		ExitChan:  exit_chan,
-	}
-}
+	ESTemplate := `{"template":"` + c.Index + `*","mappings":{"raw":{"_source":{"enabled":false},"dynamic_templates":[{"fields":{"mapping":{"index":"not_analyzed","type":"string","copy_to":"@uniq"},"path_match":"fields.*"}}],"properties":{"@timestamp":{"type":"date","format":"strict_date_optional_time||epoch_millis"},"@uniq":{"type":"string","index":"not_analyzed"},"name":{"type":"string","index":"not_analyzed"},"value":{"type":"double","index":"not_analyzed"}}}}}`
 
-func (w *Writer) Start() {
-	w.Logger.Info("[writer] Starting writer module")
-	defer w.Stop()
-
-	var ES_TEMPLATE string = `{"template":"` + w.Config.Index + `*","mappings":{"raw":{"_source":{"enabled":false},"dynamic_templates":[{"fields":{"mapping":{"index":"not_analyzed","type":"string","copy_to":"@uniq"},"path_match":"fields.*"}}],"properties":{"@timestamp":{"type":"date","format":"strict_date_optional_time||epoch_millis"},"@uniq":{"type":"string","index":"not_analyzed"},"name":{"type":"string","index":"not_analyzed"},"value":{"type":"double","index":"not_analyzed"}}}}}`
-
-	pipe := make(chan Metric, w.Config.BulkMax*w.Config.Concurrency*100)
-
-	tmpl_exists, err := w.Elastic.IndexTemplateExists(w.Config.Index).Do()
-
+	tmplExists, err := es.IndexTemplateExists(c.Index).Do()
 	if err != nil {
-		w.Logger.Alertf("[writer] Error checking index mapping template existence: %v", err)
-	} else {
-		if ! tmpl_exists {
-			w.Logger.Infof("[writer] Index mapping template doesn't exits, creating '%s'", w.Config.Index)
-			tmpl := w.Elastic.IndexPutTemplate(w.Config.Index).
-				Create(true).
-				BodyString(ES_TEMPLATE).
-				Order(0)
-			err := tmpl.Validate()
-			if err != nil {
-				w.Logger.Errorf("[writer] Failed to validate the index mapping template: %v", err)
-			} else {
-				res, err := tmpl.Do()
-				if err != nil {
-					w.Logger.Errorf("[writer] Failed to put the index mapping template: %v", err)
-				} else {
-					if ! res.Acknowledged {
-						w.Logger.Error("[writer] Failed to acknowledge the new index mapping template")
-					} else {
-						w.Logger.Info("[writer] New index mapping template acknowledged")
-					}
-				}
-			}
+		logger.Alertf("[writer] Error checking index mapping template existence: %v", err)
+		return &Writer{}, err
+	}
+	if !tmplExists {
+		logger.Infof("[writer] Index mapping template doesn't exits, creating '%s'", c.Index)
+		tmpl := es.IndexPutTemplate(c.Index).
+			Create(true).
+			BodyString(ESTemplate).
+			Order(0)
+		err := tmpl.Validate()
+		if err != nil {
+			logger.Alertf("[writer] Failed to validate the index mapping template: %v", err)
+			return &Writer{}, err
+		}
+		res, err := tmpl.Do()
+		if err != nil {
+			logger.Alertf("[writer] Failed to put the index mapping template: %v", err)
+			return &Writer{}, err
+		}
+		if !res.Acknowledged {
+			logger.Error("[writer] Failed to acknowledge the new index mapping template")
+		} else {
+			logger.Info("[writer] New index mapping template acknowledged")
 		}
 	}
 
+	return &Writer{
+		Config:    c,
+		ModuleWg:  module_wg,
+		Transport: t,
+		Elastic:   es,
+		Logger:    logger,
+		ExitFlag:  exitFlag,
+	}, nil
+}
+
+func (w *Writer) Start() {
+	w.ModuleWg.Add(1)
+	w.Logger.Info("[writer] Starting writer module")
+	defer w.ModuleWg.Done()
+
+	exitChan := make(chan bool, 1)
+
 	w.Logger.Debug("[writer] Setting up bulk-processor")
+	var err interface{}
 	w.Processor, err = w.Elastic.BulkProcessor().
 		BulkActions(w.Config.BulkMax).
 		BulkSize(-1).
@@ -90,53 +89,40 @@ func (w *Writer) Start() {
 
 	if err != nil {
 		w.Logger.Alertf("[writer] Failed to setup bulk-processor: %v", err)
+		return
 	}
 
-	for r := 0; r < w.Config.Concurrency; r++ {
-		w.Logger.Debugf("[writer] Starting buffer-reader %02d", r+1)
-		go w.readFromBuffer(pipe)
-	}
 	w.Logger.Info("[writer] Writer module started")
+
+	// shutdown handler
+	go func() {
+		for {
+			switch {
+			case w.ExitFlag.Get():
+				w.Logger.Info("[writer] Stopping...")
+				exitChan <- true
+				return
+			default:
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+	}()
 
 	for {
 		select {
-		case metric := <-pipe:
-			w.Logger.Debug("[writer] Adding metric to bulk")
+		case metric := <-w.Transport.WriterChan():
 			req := elastic.NewBulkIndexRequest().
 				Index(metric.Index(w.Config.Index)).
 				Type(w.Config.DocType).
 				Doc(string(metric.JSON()))
 			w.Processor.Add(req)
-		case <-w.ExitChan:
+		case <-exitChan:
+			w.Logger.Debug("[writer] Flushing unwritten data...")
+			w.Processor.Flush()
+			w.Logger.Debug("[writer] Closing bulk-processor")
+			w.Processor.Close()
+			w.Logger.Info("[writer] Stopped")
 			return
-		}
-	}
-}
-
-func (w *Writer) Stop() {
-	w.Logger.Info("[writer] Stopping...")
-	w.Logger.Debug("[writer] Flushing unwritten data...")
-	w.Processor.Flush()
-	w.Logger.Debug("[writer] Closing bulk-processor")
-	w.Processor.Close()
-	w.Logger.Info("[writer] Stopped")
-	w.Wg.Done()
-}
-
-func (w *Writer) readFromBuffer(p chan Metric) {
-	for {
-		select {
-		case <-w.ExitChan:
-			w.Logger.Debug("[writer] Received exit signal")
-			return
-		default:
-			metric, err := w.Buffer.Pop()
-			if err != nil {
-				w.Logger.Error("[writer] Failed to BLPOP metric from buffer: " + err.Error())
-			} else {
-				p <- metric
-				w.Logger.Debug("[writer] BLPOPed metric from buffer")
-			}
 		}
 	}
 }

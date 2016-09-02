@@ -1,11 +1,11 @@
 package metcap
 
 import (
-  "time"
-  "fmt"
-  "regexp"
-  "strconv"
-  "strings"
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 )
 
 // helper function to parse timestamp into time.Time
@@ -87,34 +87,34 @@ func parseFields(d map[string]string, mut *[]string) (string, map[string]string,
 				field_names := strings.Split(mut_rule[1], ".")
 
 				// iterate thru fields
-        FIELD_PARSER:
+			FIELD_PARSER:
 				for i, field := range field_values {
 					switch {
-						case regexp.MustCompile(`^[0-9]+$`).Match([]byte(field_names[i])):
-							// numeric rule -> name
-							name = append(name, field)
-						case regexp.MustCompile(`^[a-zA-Z0-9_]+\+$`).Match([]byte(field_names[i])):
-							// string rule with catch-all flag -> catch-all field
-							f := strings.TrimRight(field_names[i], "+")
-							fields[f] = strings.Join(field_values[i:], ":")
-							break FIELD_PARSER
-						case regexp.MustCompile(`^[a-zA-Z0-9_]+$`).Match([]byte(field_names[i])):
-							// string rule -> field
-							fields[field_names[i]] = field
-						case regexp.MustCompile(`^\+$`).Match([]byte(field_names[i])):
-							// catch-all flag -> fill name
-							name = append(name, strings.Join(field_values[i:], ":"))
-							break FIELD_PARSER
-						case regexp.MustCompile(`^-$`).Match([]byte(field_names[i])):
-							// no-catch flag -> skip
-							continue FIELD_PARSER
+					case regexp.MustCompile(`^[0-9]+$`).Match([]byte(field_names[i])):
+						// numeric rule -> name
+						name = append(name, field)
+					case regexp.MustCompile(`^[a-zA-Z0-9_]+\+$`).Match([]byte(field_names[i])):
+						// string rule with catch-all flag -> catch-all field
+						f := strings.TrimRight(field_names[i], "+")
+						fields[f] = strings.Join(field_values[i:], ":")
+						break FIELD_PARSER
+					case regexp.MustCompile(`^[a-zA-Z0-9_]+$`).Match([]byte(field_names[i])):
+						// string rule -> field
+						fields[field_names[i]] = field
+					case regexp.MustCompile(`^\+$`).Match([]byte(field_names[i])):
+						// catch-all flag -> fill name
+						name = append(name, strings.Join(field_values[i:], ":"))
+						break FIELD_PARSER
+					case regexp.MustCompile(`^-$`).Match([]byte(field_names[i])):
+						// no-catch flag -> skip
+						continue FIELD_PARSER
 					}
 				}
 				break
 			}
 		}
 
-		if ! mut_rule_match {
+		if !mut_rule_match {
 			name = append(name, strings.Join(strings.Split(d["path"], "."), ":"))
 		}
 		// not Graphite? then it must be only Influx (for now :))

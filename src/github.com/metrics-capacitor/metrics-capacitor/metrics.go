@@ -3,9 +3,9 @@ package metcap
 import (
 	"encoding/json"
 	"fmt"
+	"gopkg.in/vmihailenco/msgpack.v2"
 	"regexp"
 	"time"
-	"gopkg.in/vmihailenco/msgpack.v2"
 )
 
 // Metric struct
@@ -15,7 +15,7 @@ type Metric struct {
 	Timestamp time.Time         `json:"@timestamp"`
 	Value     float64           `json:"value"`
 	Fields    map[string]string `json:"fields"`
-	OK				bool							`json:"ok"`
+	OK        bool              `json:"ok"`
 }
 
 type Metrics []Metric
@@ -102,7 +102,7 @@ func NewMetricFromLine(line string, codec string, mut *[]string) (Metric, error)
 		}
 
 		return Metric{
-			OK:		 		 true,
+			OK:        true,
 			Name:      name,
 			Timestamp: timestamp,
 			Value:     value,

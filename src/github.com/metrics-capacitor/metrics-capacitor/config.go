@@ -10,43 +10,47 @@ import (
 type Config struct {
 	Syslog     bool
 	Debug      bool
-	Buffer     BufferConfig
+	Transport  TransportConfig
 	Listener   map[string]ListenerConfig
 	Writer     WriterConfig
 	Aggregator AggregatorConfig
 }
 
-type BufferConfig struct {
-	Socket      string
-	Address     string
-	DB          int
-	Timeout     int
-	Wait        int
-	Connections int
-	Queue       string
+type TransportConfig struct {
+	Type             string
+	BufferSize       int    `toml:"buffer_size"`
+	RedisURL         string `toml:"redis_url"`
+	RedisTimeout     int    `toml:"redis_timeout"`
+	RedisWait        int    `toml:"redis_wait"`
+	RedisConnections int    `toml:"redis_connections"`
+	RedisQueue       string `toml:"redis_queue"`
+	AMQPURL          string `toml:"amqp_url"`
+	AMQPTimeout      string `toml:"amqp_timeout"`
+	AMQPTag          string `toml:"amqp_tag"`
+	AMQPConsumers    int    `toml:"amqp_consumers"`
+	AMQPProducers    int    `toml:"amqp_producers"`
 }
 
 type ListenerConfig struct {
 	Port        int
 	Protocol    string
 	Codec       string
-	MutatorFile string	`toml:"mutator_file"`
+	MutatorFile string `toml:"mutator_file"`
 }
 
 type WriterConfig struct {
-	Urls        []string
+	URLs        []string `toml:"urls"`
 	Timeout     int
 	Concurrency int
-	BulkMax     int 		`toml:"bulk_max"`
-	BulkWait    int			`toml:"bulk_wait"`
+	BulkMax     int `toml:"bulk_max"`
+	BulkWait    int `toml:"bulk_wait"`
 	Index       string
-	DocType     string	`toml:"doc_type"`
-	Ttl         int
+	DocType     string `toml:"doc_type"`
 }
 
 type AggregatorConfig struct{}
 
-// Read config file
+// ReadConfig
 //
 func ReadConfig(configfile *string) Config {
 	if _, err := os.Stat(*configfile); err != nil {
