@@ -25,9 +25,12 @@ Development has been supported by:
 
 ## Features
 
-- Golang... for speed ;)
+- Written in Golang... for speed ;)
 - Graphite + InfluxDB line listeners (TCP/UDP)
-- Modular design (you can run listeners and writers separately)
+- Modular design
+  - Transport (Channel/Redis/AMQP)
+  - Listeners (Graphite, InfluxDB)
+  - Writer
 - Connection pooling
 - Scalability
   - Multiple-core use
@@ -36,8 +39,8 @@ Development has been supported by:
 
 ## Prerequisities
 
-- Redis 3.x
 - ElasticSearch 2.3
+- Redis 3.x or RabbitMQ with AMQP 0.9.1 (optional, for scalability)
 - Go 1.6 (for development)
 
 ## Installation

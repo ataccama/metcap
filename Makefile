@@ -62,7 +62,7 @@ pkg/linux_amd64/$(LIB_PATH).a: pkg $(sources)
 	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && time go install -v -a $(LIB_PATH)'
 
 .PHONY: test
-test:
+test: bin/$(NAME)
 	-$(DOCKER) $(D_RUN) -it $(IMG_DEV) /go/bin/metrics-capacitor
 
 .PHONY: push

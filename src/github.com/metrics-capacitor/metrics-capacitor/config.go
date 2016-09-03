@@ -25,8 +25,8 @@ type TransportConfig struct {
 	RedisConnections int    `toml:"redis_connections"`
 	RedisQueue       string `toml:"redis_queue"`
 	AMQPURL          string `toml:"amqp_url"`
-	AMQPTimeout      string `toml:"amqp_timeout"`
 	AMQPTag          string `toml:"amqp_tag"`
+	AMQPTimeout      int    `toml:"amqp_timeout"`
 	AMQPConsumers    int    `toml:"amqp_consumers"`
 	AMQPProducers    int    `toml:"amqp_producers"`
 }

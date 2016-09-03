@@ -2,6 +2,7 @@ package metcap
 
 import (
 	"github.com/streadway/amqp"
+	"net"
 	"strconv"
 	"sync"
 	"time"
@@ -26,7 +27,14 @@ type AMQPTransport struct {
 // NewAMQPTransport
 func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bool, exitFlag *Flag) *AMQPTransport {
 	// connection
-	conn, err := amqp.Dial(c.AMQPURL)
+
+	conn, err := amqp.DialConfig(c.AMQPURL, amqp.Config{
+		Dial: func(network, addr string) (net.Conn, error) {
+			return net.DialTimeout(network, addr, time.Duration(c.AMQPTimeout)*time.Second)
+		},
+	})
+
+	// conn, err := amqp.Dial(c.AMQPURL)
 	if err != nil {
 		panic(err)
 	}
@@ -59,11 +67,11 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 		panic(err)
 	}
 
-	if _, err := channel.QueueDeclare(c.AMQPTag, true, false, false, false, nil); err != nil {
+	if _, err := channel.QueueDeclare("metcap:"+c.AMQPTag, true, false, false, false, nil); err != nil {
 		panic(err)
 	}
 
-	if err := channel.QueueBind(c.AMQPTag, c.AMQPTag, c.AMQPTag, false, nil); err != nil {
+	if err := channel.QueueBind(c.AMQPTag, c.AMQPTag, "metcap:"+c.AMQPTag, false, nil); err != nil {
 		panic(err)
 	}
 
@@ -121,7 +129,7 @@ func (t *AMQPTransport) Start() {
 			go func() {
 				t.Wg.Add(1)
 				defer t.Wg.Done()
-				delivery, err := t.Channel.Consume(t.Exchange, t.Exchange+"writer:"+strconv.Itoa(i), false, false, false, false, nil)
+				delivery, err := t.Channel.Consume(t.Exchange, t.Exchange+":writer:"+strconv.Itoa(i), false, false, false, false, nil)
 				if err != nil {
 					panic(err)
 				}
