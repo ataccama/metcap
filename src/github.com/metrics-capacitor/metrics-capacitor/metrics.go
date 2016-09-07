@@ -108,17 +108,6 @@ func NewMetricFromLine(line string, codec string, mut *[]string) (Metric, error)
 			Value:     value,
 			Fields:    fields}, nil
 	} else {
-		return Metric{OK: false}, &NewMetricFromLineError{"Failed to ingest metric", line}
+		return Metric{OK: false}, &MetricFromLineError{"Failed to ingest metric", line}
 	}
-}
-
-// Errors
-
-type NewMetricFromLineError struct {
-	msg  string
-	line string
-}
-
-func (e *NewMetricFromLineError) Error() string {
-	return fmt.Sprintf("%s (LINE: %s)", e.msg, e.line)
 }

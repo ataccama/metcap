@@ -1,7 +1,6 @@
 package metcap
 
 import (
-	"fmt"
 	"github.com/streadway/amqp"
 	"net"
 	"strconv"
@@ -10,16 +9,19 @@ import (
 )
 
 type AMQPTransport struct {
-	Conn            *amqp.Connection
-	Channel         *amqp.Channel
+	InputConn       *amqp.Connection
+	OutputConn      *amqp.Connection
+	InputChannel    *amqp.Channel
+	OutputChannel   *amqp.Channel
 	Size            int
 	Consumers       int
 	Producers       int
 	Exchange        string
+	Queue           string
 	ListenerEnabled bool
 	WriterEnabled   bool
-	Listener        chan *Metric
-	Writer          chan *Metric
+	Input           chan *Metric
+	Output          chan *Metric
 	ExitChan        chan bool
 	ExitFlag        *Flag
 	Wg              *sync.WaitGroup
@@ -29,20 +31,6 @@ type AMQPTransport struct {
 // NewAMQPTransport
 func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bool, exitFlag *Flag, logger *Logger) (*AMQPTransport, error) {
 	// connection
-	conn, err := amqp.DialConfig(c.AMQPURL, amqp.Config{
-		Dial: func(network, addr string) (net.Conn, error) {
-			return net.DialTimeout(network, addr, time.Duration(c.AMQPTimeout)*time.Second)
-		},
-	})
-	if err != nil {
-		return nil, &TransportError{"amqp", err}
-	}
-
-	// channel setup
-	channel, err := conn.Channel()
-	if err != nil {
-		return nil, &TransportError{"amqp", err}
-	}
 
 	if c.AMQPTag == "" {
 		c.AMQPTag = "default"
@@ -52,59 +40,101 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 		c.BufferSize = 1000
 	}
 
-	// exchange setup
-	err = channel.ExchangeDeclare(
-		"metcap:"+c.AMQPTag, // name
-		"direct",            // type
-		true,                // durable
-		false,               // auto-delete
-		false,               // internal
-		false,               // noWait
-		nil,                 // arguments
-	)
-	if err != nil {
-		return nil, &TransportError{"amqp", err}
+	var inputConn *amqp.Connection
+	var inputChannel *amqp.Channel
+	var outputConn *amqp.Connection
+	var outputChannel *amqp.Channel
+	var err error
+	queue := "metcap:" + c.AMQPTag
+	exchange := "metcap:" + c.AMQPTag
+
+	if listenerEnabled {
+		inputConn, inputChannel, err = amqpInit(c)
+		if err != nil {
+			return nil, &TransportError{"amqp", err}
+		}
+
+		err = inputChannel.ExchangeDeclare(
+			exchange, // exchange name
+			"direct", // exchange type
+			true,     // durable?
+			false,    // auto-delete?
+			false,    // internal?
+			false,    // no-wait?
+			nil,      // arguments
+		)
+		if err != nil {
+			return nil, &TransportError{"amqp", err}
+		}
 	}
 
-	_, err = channel.QueueDeclare(
-		"metcap:"+c.AMQPTag,
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
-	if err != nil {
-		return nil, &TransportError{"amqp", err}
-	}
+	if writerEnabled {
+		outputConn, outputChannel, err = amqpInit(c)
+		if err != nil {
+			return nil, &TransportError{"amqp", err}
+		}
 
-	err = channel.QueueBind(
-		"metcap:"+c.AMQPTag,
-		"metcap:"+c.AMQPTag,
-		"metcap:"+c.AMQPTag,
-		false,
-		nil,
-	)
-	if err != nil {
-		return nil, &TransportError{"amqp", err}
+		_, err = outputChannel.QueueDeclare(
+			queue, // queue name
+			true,  // durable?
+			false, // auto-delete?
+			false, // exclusive?
+			false, // no-wait?
+			nil,   // arguments
+		)
+		if err != nil {
+			return nil, &TransportError{"amqp", err}
+		}
+
+		err = outputChannel.QueueBind(
+			queue, // queue name
+			"metcap:"+c.AMQPTag, // key name
+			exchange,            // exchange name
+			false,               // no-wait?
+			nil,                 // arguments
+		)
+		if err != nil {
+			return nil, &TransportError{"amqp", err}
+		}
 	}
 
 	return &AMQPTransport{
-		Conn:            conn,
-		Channel:         channel,
+		InputConn:       inputConn,
+		OutputConn:      outputConn,
+		InputChannel:    inputChannel,
+		OutputChannel:   outputChannel,
 		Size:            c.BufferSize,
 		Consumers:       c.AMQPConsumers,
 		Producers:       c.AMQPProducers,
-		Exchange:        "metcap:" + c.AMQPTag,
+		Exchange:        exchange,
+		Queue:           queue,
 		ListenerEnabled: listenerEnabled,
 		WriterEnabled:   writerEnabled,
-		Listener:        make(chan *Metric, c.BufferSize),
-		Writer:          make(chan *Metric, c.BufferSize),
+		Input:           make(chan *Metric, c.BufferSize),
+		Output:          make(chan *Metric, c.BufferSize),
 		ExitChan:        make(chan bool, 1),
 		ExitFlag:        exitFlag,
 		Wg:              &sync.WaitGroup{},
 		Logger:          logger,
 	}, nil
+}
+
+func amqpInit(c *TransportConfig) (*amqp.Connection, *amqp.Channel, error) {
+	conn, err := amqp.DialConfig(c.AMQPURL, amqp.Config{
+		Dial: func(network, addr string) (net.Conn, error) {
+			return net.DialTimeout(network, addr, time.Duration(c.AMQPTimeout)*time.Second)
+		},
+	})
+	if err != nil {
+		return nil, nil, &TransportError{"amqp", err}
+	}
+
+	channel, err := conn.Channel()
+	if err != nil {
+		return nil, nil, &TransportError{"amqp", err}
+	}
+
+	return conn, channel, nil
 }
 
 func (t *AMQPTransport) Start() {
@@ -116,23 +146,23 @@ func (t *AMQPTransport) Start() {
 				defer t.Wg.Done()
 				for {
 					select {
-					case m := <-t.Listener:
-						err := t.Channel.Publish(
-							t.Exchange,
-							"",
-							false,
-							false,
-							amqp.Publishing{
-								Headers:         amqp.Table{},
-								ContentType:     "application/msgpack",
-								ContentEncoding: "UTF-8",
-								Body:            m.Serialize(),
-								DeliveryMode:    amqp.Transient,
-								Priority:        0,
+					case m := <-t.Input:
+						err := t.InputChannel.Publish(
+							t.Exchange, // exchange
+							t.Exchange, // routing key
+							false,      // mandatory?
+							false,      // immediate?
+							amqp.Publishing{ // message definition
+								Headers:         amqp.Table{},          // AMQP message headers
+								ContentType:     "application/msgpack", // content type
+								ContentEncoding: "UTF-8",               // encoding
+								Body:            m.Serialize(),         // serialized metric data
+								DeliveryMode:    amqp.Transient,        // AMQP message delivery mode
+								Priority:        0,                     // AMQP message priority
 							},
 						)
 						if err != nil {
-							panic(err)
+							t.Logger.Errorf("[amqp] Failed to publish metric: %v", err)
 						}
 					case <-t.ExitChan:
 						return
@@ -147,30 +177,29 @@ func (t *AMQPTransport) Start() {
 			go func(i int) {
 				t.Wg.Add(1)
 				defer t.Wg.Done()
-				delivery, err := t.Channel.Consume(
-					t.Exchange,
-					t.Exchange+":writer:"+strconv.Itoa(i),
-					false,
-					false,
-					false,
-					false,
-					nil,
+				delivery, err := t.OutputChannel.Consume(
+					t.Exchange, // queue name
+					t.Exchange+":writer:"+strconv.Itoa(i), // consumer tag
+					false, // autoAck? (auto acknowledge delivery)
+					false, // exclusive? (there are multiple consumers)
+					false, // no-local?
+					true,  // no-wait?
+					nil,   // arguments
 				)
 				if err != nil {
-					panic(err)
+					t.Logger.Errorf("[amqp] Failed to setup delivery channel: %v", err)
 				}
 				for {
 					select {
-					case m := <-delivery:
-						fmt.Println(m)
-						metric, err := DeserializeMetric(string(m.Body))
+					case message := <-delivery:
+						metric, err := DeserializeMetric(string(message.Body))
 						if err != nil {
-							m.Nack(false, false)
-							fmt.Println(err)
+							message.Nack(false, false)
+							t.Logger.Errorf("[amqp] Failed to deserialize metric: %v", err)
 							continue
 						}
-						t.Writer <- &metric
-						m.Ack(false)
+						t.Output <- &metric
+						message.Ack(false)
 					case <-t.ExitChan:
 						return
 					}
@@ -204,14 +233,16 @@ func (t *AMQPTransport) Start() {
 
 func (t *AMQPTransport) Stop() {
 	t.Wg.Wait()
-	t.Channel.Close()
-	t.Conn.Close()
+	t.InputChannel.Close()
+	t.InputConn.Close()
+	t.OutputChannel.Close()
+	t.OutputConn.Close()
 }
 
 func (t *AMQPTransport) ListenerChan() chan<- *Metric {
-	return t.Listener
+	return t.Input
 }
 
 func (t *AMQPTransport) WriterChan() <-chan *Metric {
-	return t.Writer
+	return t.Output
 }
