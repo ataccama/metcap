@@ -1,7 +1,6 @@
 package metcap
 
 import (
-	// "fmt"
 	"fmt"
 	"github.com/streadway/amqp"
 	"net"
@@ -24,27 +23,25 @@ type AMQPTransport struct {
 	ExitChan        chan bool
 	ExitFlag        *Flag
 	Wg              *sync.WaitGroup
+	Logger          *Logger
 }
 
 // NewAMQPTransport
-func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bool, exitFlag *Flag) *AMQPTransport {
+func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bool, exitFlag *Flag, logger *Logger) (*AMQPTransport, error) {
 	// connection
-
 	conn, err := amqp.DialConfig(c.AMQPURL, amqp.Config{
 		Dial: func(network, addr string) (net.Conn, error) {
 			return net.DialTimeout(network, addr, time.Duration(c.AMQPTimeout)*time.Second)
 		},
 	})
-
-	// conn, err := amqp.Dial(c.AMQPURL)
 	if err != nil {
-		panic(err)
+		return nil, &TransportError{"amqp", err}
 	}
 
 	// channel setup
 	channel, err := conn.Channel()
 	if err != nil {
-		panic(err)
+		return nil, &TransportError{"amqp", err}
 	}
 
 	if c.AMQPTag == "" {
@@ -66,7 +63,7 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 		nil,                 // arguments
 	)
 	if err != nil {
-		panic(err)
+		return nil, &TransportError{"amqp", err}
 	}
 
 	_, err = channel.QueueDeclare(
@@ -78,7 +75,7 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 		nil,
 	)
 	if err != nil {
-		panic(err)
+		return nil, &TransportError{"amqp", err}
 	}
 
 	err = channel.QueueBind(
@@ -89,7 +86,7 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 		nil,
 	)
 	if err != nil {
-		panic(err)
+		return nil, &TransportError{"amqp", err}
 	}
 
 	return &AMQPTransport{
@@ -106,7 +103,8 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 		ExitChan:        make(chan bool, 1),
 		ExitFlag:        exitFlag,
 		Wg:              &sync.WaitGroup{},
-	}
+		Logger:          logger,
+	}, nil
 }
 
 func (t *AMQPTransport) Start() {

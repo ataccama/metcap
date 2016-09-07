@@ -25,9 +25,9 @@ Development has been supported by:
 ## Features
 
 - Written in Golang... for speed ;)
-- Graphite + InfluxDB line listeners (TCP/UDP)
+- Graphite + InfluxDB line listeners (TCP)
 - Modular design
-  - Transport (Channel/Redis/AMQP)
+  - Transport (Go Channel/Redis/AMQP)
   - Listeners (Graphite, InfluxDB)
   - Writer
 - Connection pooling

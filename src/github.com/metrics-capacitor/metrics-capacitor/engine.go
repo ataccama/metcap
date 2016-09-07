@@ -62,7 +62,12 @@ func (e *Engine) Run() {
 	case "redis":
 		transport = NewRedisTransport(&e.Config.Transport, listenerEnabled, writerEnabled, exitFlag)
 	case "amqp":
-		transport = NewAMQPTransport(&e.Config.Transport, listenerEnabled, writerEnabled, exitFlag)
+		var err error
+		transport, err = NewAMQPTransport(&e.Config.Transport, listenerEnabled, writerEnabled, exitFlag, logger)
+		if err != nil {
+			logger.Alertf("[engine] Failed to set-up transport: %v", err)
+			os.Exit(1)
+		}
 	default:
 		logger.Alertf("[engine] Transport '%s' not implemented", e.Config.Transport.Type)
 		os.Exit(1)
