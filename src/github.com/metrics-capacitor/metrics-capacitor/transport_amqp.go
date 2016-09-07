@@ -1,6 +1,8 @@
 package metcap
 
 import (
+	// "fmt"
+	"fmt"
 	"github.com/streadway/amqp"
 	"net"
 	"strconv"
@@ -67,11 +69,26 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 		panic(err)
 	}
 
-	if _, err := channel.QueueDeclare("metcap:"+c.AMQPTag, true, false, false, false, nil); err != nil {
+	_, err = channel.QueueDeclare(
+		"metcap:"+c.AMQPTag,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
 		panic(err)
 	}
 
-	if err := channel.QueueBind(c.AMQPTag, c.AMQPTag, "metcap:"+c.AMQPTag, false, nil); err != nil {
+	err = channel.QueueBind(
+		"metcap:"+c.AMQPTag,
+		"metcap:"+c.AMQPTag,
+		"metcap:"+c.AMQPTag,
+		false,
+		nil,
+	)
+	if err != nil {
 		panic(err)
 	}
 
@@ -95,14 +112,14 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 func (t *AMQPTransport) Start() {
 
 	if t.ListenerEnabled {
-		for i := 1; i <= t.Consumers; i++ {
-			go func() {
+		for producerCount := 1; producerCount <= t.Producers; producerCount++ {
+			go func(i int) {
 				t.Wg.Add(1)
 				defer t.Wg.Done()
 				for {
 					select {
 					case m := <-t.Listener:
-						t.Channel.Publish(
+						err := t.Channel.Publish(
 							t.Exchange,
 							"",
 							false,
@@ -116,29 +133,42 @@ func (t *AMQPTransport) Start() {
 								Priority:        0,
 							},
 						)
+						if err != nil {
+							panic(err)
+						}
 					case <-t.ExitChan:
 						return
 					}
 				}
-			}()
+			}(producerCount)
 		}
 	}
 
 	if t.WriterEnabled {
-		for i := 1; i <= t.Consumers; i++ {
-			go func() {
+		for consumerCount := 1; consumerCount <= t.Consumers; consumerCount++ {
+			go func(i int) {
 				t.Wg.Add(1)
 				defer t.Wg.Done()
-				delivery, err := t.Channel.Consume(t.Exchange, t.Exchange+":writer:"+strconv.Itoa(i), false, false, false, false, nil)
+				delivery, err := t.Channel.Consume(
+					t.Exchange,
+					t.Exchange+":writer:"+strconv.Itoa(i),
+					false,
+					false,
+					false,
+					false,
+					nil,
+				)
 				if err != nil {
 					panic(err)
 				}
 				for {
 					select {
 					case m := <-delivery:
+						fmt.Println(m)
 						metric, err := DeserializeMetric(string(m.Body))
 						if err != nil {
 							m.Nack(false, false)
+							fmt.Println(err)
 							continue
 						}
 						t.Writer <- &metric
@@ -147,7 +177,7 @@ func (t *AMQPTransport) Start() {
 						return
 					}
 				}
-			}()
+			}(consumerCount)
 		}
 	}
 
@@ -165,8 +195,8 @@ func (t *AMQPTransport) Start() {
 			case t.ExitFlag.Get():
 				for i := 0; i < goroutines; i++ {
 					t.ExitChan <- true
-					return
 				}
+				return
 			default:
 				time.Sleep(10 * time.Millisecond)
 			}
