@@ -5,7 +5,6 @@
 Development has been supported by:
 - [EtNetera Group](http://www.etneteragroup.com/)
 - [NeuronAD LTD](http://www.neuronad.com/)
-- [PRO-ZETA a.s.](http://www.prozeta.eu/)
 
 ----------------------------------------------------------------------
 
