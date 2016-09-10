@@ -2,7 +2,6 @@ package metcap
 
 import (
 	"bufio"
-	// "fmt"
 	"io"
 	"os"
 	"regexp"

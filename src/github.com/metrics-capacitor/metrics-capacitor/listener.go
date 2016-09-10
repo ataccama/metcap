@@ -1,7 +1,7 @@
 package metcap
 
 import (
-	"io"
+	// "bytes"
 	"net"
 	"strconv"
 	"sync"
@@ -119,12 +119,9 @@ func (l *Listener) Start() {
 
 func (l *Listener) handleConnection(conn net.Conn) {
 	l.ConnWg.Add(1)
+	defer conn.Close()
 	defer l.ConnWg.Done()
-	var buf io.ReadWriter
-	io.Copy(buf, conn)
-	conn.Close()
-	l.Logger.Debugf("[listener:%s] Closed connection from %s", l.Name, conn.RemoteAddr().String())
-	metrics, took, errs := l.Codec.Decode(buf)
+	metrics, took, errs := l.Codec.Decode(conn)
 	if len(errs) > 0 {
 
 	}
@@ -132,5 +129,5 @@ func (l *Listener) handleConnection(conn net.Conn) {
 	for _, metric := range metrics {
 		l.Transport.ListenerChan() <- &metric
 	}
-
+	l.Logger.Debugf("[listener:%s] Closing connection to %s", l.Name, conn.RemoteAddr().String())
 }
