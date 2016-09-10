@@ -2,15 +2,6 @@ package metcap
 
 import "fmt"
 
-type MetricFromLineError struct {
-	msg  string
-	line string
-}
-
-func (e *MetricFromLineError) Error() string {
-	return fmt.Sprintf("%s (LINE: %s)", e.msg, e.line)
-}
-
 type TransportError struct {
 	provider string
 	err      error
@@ -18,4 +9,14 @@ type TransportError struct {
 
 func (e *TransportError) Error() string {
 	return fmt.Sprintf("[%s] Error: %s", e.provider, e.err.Error())
+}
+
+type CodecError struct {
+	msg string
+	err error
+	src interface{}
+}
+
+func (e *CodecError) Error() string {
+	return fmt.Sprintf("%s - &v [%v]", e.msg, e.err, e.src)
 }

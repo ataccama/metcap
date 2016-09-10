@@ -1,27 +1,29 @@
 package metcap
 
 import (
-	"bufio"
+	"io"
 	"net"
-	"os"
 	"strconv"
 	"sync"
 	"time"
 )
 
 type Listener struct {
-	Name            string
-	Socket          net.Listener
-	Config          ListenerConfig
-	ConnWg          sync.WaitGroup
-	ModuleWg        *sync.WaitGroup
-	Transport       Transport
-	GraphiteMutator *[]string
-	Logger          *Logger
-	ExitFlag        *Flag
+	Name      string
+	Socket    net.Listener
+	Config    ListenerConfig
+	ConnWg    sync.WaitGroup
+	ModuleWg  *sync.WaitGroup
+	Transport Transport
+	Codec     Codec
+	Logger    *Logger
+	ExitFlag  *Flag
 }
 
-func NewListener(name string, c ListenerConfig, t Transport, module_wg *sync.WaitGroup, logger *Logger, exitFlag *Flag) (Listener, error) {
+type ListenerStatus struct {
+}
+
+func NewListener(name string, c ListenerConfig, t Transport, moduleWg *sync.WaitGroup, logger *Logger, exitFlag *Flag) (Listener, error) {
 	logger.Infof("[listener:%s] Starting [%s://0.0.0.0:%d/%s]", name, c.Protocol, c.Port, c.Codec)
 
 	sock, err := net.Listen("tcp", ":"+strconv.Itoa(c.Port))
@@ -30,34 +32,33 @@ func NewListener(name string, c ListenerConfig, t Transport, module_wg *sync.Wai
 		return Listener{}, err
 	}
 
-	var mut []string
-	if c.Codec == "graphite" {
+	var codec Codec
+
+	switch c.Codec {
+	case "graphite":
 		logger.Debugf("[listener:%s] Detected graphite codec, loading mutator config", name)
-		mut_file, err := os.Open(c.MutatorFile)
-		if err != nil {
-			logger.Alertf("[listener:%s] Couldn't open mutator config: %v", name, err)
-			return Listener{}, err
-		} else {
-			scn := bufio.NewScanner(mut_file)
-			for scn.Scan() {
-				mut = append(mut, scn.Text())
-			}
-			logger.Debugf("[listener:%s] Loaded mutator rules", name)
-		}
+		codec, err = NewGraphiteCodec(c.MutatorFile)
+	case "influx":
+		logger.Debugf("[listener:%s] Detected influx codec", name)
+		// codec, err := NewInfluxCodec()
+	}
+	if err != nil {
+		logger.Alertf("[listener:%s] Failed to initialize codec: %v", name, err)
+		return Listener{}, err
 	}
 
-	var wg sync.WaitGroup
+	// var wg sync.WaitGroup
 
 	return Listener{
-		Name:            name,
-		Socket:          sock,
-		Config:          c,
-		ConnWg:          wg,
-		ModuleWg:        module_wg,
-		Transport:       t,
-		GraphiteMutator: &mut,
-		Logger:          logger,
-		ExitFlag:        exitFlag,
+		Name:      name,
+		Socket:    sock,
+		Config:    c,
+		ConnWg:    sync.WaitGroup{},
+		ModuleWg:  moduleWg,
+		Transport: t,
+		Codec:     codec,
+		Logger:    logger,
+		ExitFlag:  exitFlag,
 	}, nil
 }
 
@@ -67,7 +68,7 @@ func (l *Listener) Start() {
 
 	l.Logger.Infof("[listener:%s] Starting to accept connections", l.Name)
 
-	connPipe := make(chan net.Conn, 100)
+	connPipe := make(chan net.Conn)
 	exitChan := make(chan bool, 1)
 
 	// connection acceptor
@@ -97,9 +98,8 @@ func (l *Listener) Start() {
 				l.Logger.Debugf("[listener:%s] Processing remaining metrics", l.Name)
 				exitChan <- true
 				return
-			} else {
-				time.Sleep(10 * time.Millisecond)
 			}
+			time.Sleep(10 * time.Millisecond)
 		}
 	}()
 
@@ -119,21 +119,18 @@ func (l *Listener) Start() {
 
 func (l *Listener) handleConnection(conn net.Conn) {
 	l.ConnWg.Add(1)
-	scn := bufio.NewScanner(conn)
-	for scn.Scan() {
-		line := scn.Text()
-		metric, err := NewMetricFromLine(line, l.Config.Codec, l.GraphiteMutator)
-		if err == nil {
-			if metric.OK {
-				l.Transport.ListenerChan() <- &metric
-			} else {
-				l.Logger.Debugf("[listener:%s] Malformed line, skipping", l.Name)
-			}
-		} else {
-			l.Logger.Errorf("[listener:%s] %v", l.Name, err)
-		}
-	}
+	defer l.ConnWg.Done()
+	var buf io.ReadWriter
+	io.Copy(buf, conn)
 	conn.Close()
 	l.Logger.Debugf("[listener:%s] Closed connection from %s", l.Name, conn.RemoteAddr().String())
-	l.ConnWg.Done()
+	metrics, took, errs := l.Codec.Decode(buf)
+	if len(errs) > 0 {
+
+	}
+	l.Logger.Debugf("[listener:%s] Decoded %d metrics, took %dms", l.Name, len(metrics), took)
+	for _, metric := range metrics {
+		l.Transport.ListenerChan() <- &metric
+	}
+
 }

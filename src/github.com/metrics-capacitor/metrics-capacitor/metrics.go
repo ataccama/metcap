@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"gopkg.in/vmihailenco/msgpack.v2"
-	"regexp"
 	"time"
 )
 
@@ -50,64 +49,13 @@ func DeserializeMetric(data string) (Metric, error) {
 	return m, nil
 }
 
-// generate Metric from JSON
-func NewMetricFromJSON(j []byte) (Metric, error) {
-	var m Metric
-	err := json.Unmarshal(j, &m)
-	if err != nil {
-		return Metric{}, err
-	}
-	return m, nil
-}
-
-// generate Metric from Graphite data listener
-func NewMetricFromLine(line string, codec string, mut *[]string) (Metric, error) {
-	var pat string
-
-	switch codec {
-	case "graphite":
-		pat = `^(?P<path>[a-zA-Z0-9_\-\.]+) (?P<value>-?[0-9\.]+)(\ (?P<timestamp>[0-9]{10,13}))?$`
-	case "influx":
-		pat = `^(?P<name>[a-zA-Z0-9_\-\.]+) (?P<fields>[a-zA-Z0-9,_\-\.\=]+) (?P<value>-?[0-9\.]+)( (?P<timestamp>\d{10,13}))?\s*$`
-	}
-
-	re, err := regexp.Compile(pat)
-
-	if err != nil {
-		return Metric{OK: false}, err
-	}
-
-	if re_empty_line := regexp.MustCompile(`^$`); re_empty_line.Match([]byte(line)) {
-		return Metric{OK: false}, nil
-	}
-
-	if re.Match([]byte(line)) {
-		match := re.FindStringSubmatch(line)
-		dissected := map[string]string{}
-
-		for i, n := range re.SubexpNames() {
-			dissected[n] = match[i]
-		}
-
-		timestamp := parseTimestamp(dissected)
-
-		name, fields, err := parseFields(dissected, mut)
-		if err != nil {
-			return Metric{OK: false}, err
-		}
-
-		value, err := parseValue(dissected)
-		if err != nil {
-			return Metric{OK: false}, err
-		}
-
-		return Metric{
-			OK:        true,
-			Name:      name,
-			Timestamp: timestamp,
-			Value:     value,
-			Fields:    fields}, nil
-	} else {
-		return Metric{OK: false}, &MetricFromLineError{"Failed to ingest metric", line}
-	}
-}
+/// generate Metric from JSON
+/// TODO: will be implemented within JSON codec
+// func NewMetricFromJSON(j []byte) (Metric, error) {
+// 	var m Metric
+// 	err := json.Unmarshal(j, &m)
+// 	if err != nil {
+// 		return Metric{}, err
+// 	}
+// 	return m, nil
+// }
