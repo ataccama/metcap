@@ -40,10 +40,10 @@ type ListenerConfig struct {
 
 type WriterConfig struct {
 	URLs        []string `toml:"urls"`
-	Timeout     int
-	Concurrency int
-	BulkMax     int `toml:"bulk_max"`
-	BulkWait    int `toml:"bulk_wait"`
+	Timeout     int      `toml:"timeout"`
+	Concurrency int      `toml:"concurrency"`
+	BulkMax     int      `toml:"bulk_max"`
+	BulkWait    int      `toml:"bulk_wait"`
 	Index       string
 	DocType     string `toml:"doc_type"`
 }

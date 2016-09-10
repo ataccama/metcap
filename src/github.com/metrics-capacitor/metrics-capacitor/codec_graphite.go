@@ -46,7 +46,7 @@ func NewGraphiteCodec(mutFile string) (GraphiteCodec, error) {
 	}, nil
 }
 
-func (c GraphiteCodec) Decode(input io.ReadWriter) ([]Metric, time.Duration, []error) {
+func (c GraphiteCodec) Decode(input io.Reader) ([]Metric, time.Duration, []error) {
 	t0 := time.Now()
 
 	var (
@@ -95,14 +95,13 @@ func (c GraphiteCodec) Decode(input io.ReadWriter) ([]Metric, time.Duration, []e
 		}
 	}
 
-	return metrics, time.Now().Sub(t0), errs
+	return metrics, time.Since(t0), errs
 }
 
 // helper function to parse timestamp into time.Time
 func (c GraphiteCodec) readTimestamp(d map[string]string) time.Time {
 	var (
 		tNow      time.Time
-		tStr      string
 		tByte     []byte
 		tLen      int
 		tUnixSec  int64
@@ -111,8 +110,7 @@ func (c GraphiteCodec) readTimestamp(d map[string]string) time.Time {
 	)
 
 	tNow = time.Now()
-	tStr = d["timestamp"]
-	tByte = []byte(tStr)
+	tByte = []byte(d["timestamp"])
 	tLen = len(tByte)
 
 	switch {
@@ -121,7 +119,7 @@ func (c GraphiteCodec) readTimestamp(d map[string]string) time.Time {
 		return tNow
 	// time is in Unix timestamp
 	case tLen <= 10:
-		tInt, err := strconv.ParseInt(tStr, 10, 64)
+		tInt, err := strconv.ParseInt(string(tByte), 10, 64)
 		if err != nil {
 			return tNow
 		}

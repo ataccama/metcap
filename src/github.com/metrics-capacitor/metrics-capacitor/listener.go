@@ -1,7 +1,9 @@
 package metcap
 
 import (
-	// "bytes"
+	"bufio"
+	"bytes"
+	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -40,7 +42,7 @@ func NewListener(name string, c ListenerConfig, t Transport, moduleWg *sync.Wait
 		codec, err = NewGraphiteCodec(c.MutatorFile)
 	case "influx":
 		logger.Debugf("[listener:%s] Detected influx codec", name)
-		// codec, err := NewInfluxCodec()
+		codec, err = NewInfluxCodec()
 	}
 	if err != nil {
 		logger.Alertf("[listener:%s] Failed to initialize codec: %v", name, err)
@@ -96,10 +98,11 @@ func (l *Listener) Start() {
 				l.Socket.Close()
 				l.Logger.Infof("[listener:%s] Socket closed", l.Name)
 				l.Logger.Debugf("[listener:%s] Processing remaining metrics", l.Name)
+				l.ConnWg.Wait()
 				exitChan <- true
 				return
 			}
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(100 * time.Millisecond)
 		}
 	}()
 
@@ -109,9 +112,9 @@ func (l *Listener) Start() {
 		case conn := <-connPipe:
 			go l.handleConnection(conn)
 		case <-exitChan:
-			l.Logger.Debugf("[listener:%s] Remaining metrics processed", l.Name)
+			l.Logger.Infof("[listener:%s] Remaining metrics processed", l.Name)
 			l.ConnWg.Wait()
-			l.Logger.Debugf("[listener:%s] Stopped", l.Name)
+			l.Logger.Infof("[listener:%s] Stopped", l.Name)
 			return
 		}
 	}
@@ -121,11 +124,19 @@ func (l *Listener) handleConnection(conn net.Conn) {
 	l.ConnWg.Add(1)
 	defer conn.Close()
 	defer l.ConnWg.Done()
-	metrics, took, errs := l.Codec.Decode(conn)
+	iBuf := bufio.NewReader(conn)
+	var oBuf bytes.Buffer
+	_, err := io.Copy(&oBuf, iBuf)
+	if err != nil {
+		l.Logger.Alertf("[listener:%s] Error handling connection data: %v", err)
+		return
+	}
+	conn.Close()
+	metrics, took, errs := l.Codec.Decode(bytes.NewReader(oBuf.Bytes()))
 	if len(errs) > 0 {
 
 	}
-	l.Logger.Debugf("[listener:%s] Decoded %d metrics, took %dms", l.Name, len(metrics), took)
+	l.Logger.Infof("[listener:%s] Decoded %d metrics, took %v", l.Name, len(metrics), took)
 	for _, metric := range metrics {
 		l.Transport.ListenerChan() <- &metric
 	}

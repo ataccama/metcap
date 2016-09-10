@@ -77,13 +77,12 @@ func (c InfluxCodec) Decode(input io.Reader) ([]Metric, time.Duration, []error) 
 		}
 	}
 
-	return metrics, time.Now().Sub(t0), errs
+	return metrics, time.Since(t0), errs
 }
 
 func (c InfluxCodec) readTimestamp(d map[string]string) time.Time {
 	var (
 		tNow      time.Time
-		tStr      string
 		tByte     []byte
 		tLen      int
 		tUnixSec  int64
@@ -92,8 +91,7 @@ func (c InfluxCodec) readTimestamp(d map[string]string) time.Time {
 	)
 
 	tNow = time.Now()
-	tStr = d["timestamp"]
-	tByte = []byte(tStr)
+	tByte = []byte(d["timestamp"])
 	tLen = len(tByte)
 
 	switch {
@@ -102,7 +100,7 @@ func (c InfluxCodec) readTimestamp(d map[string]string) time.Time {
 		return tNow
 	// time is in Unix timestamp
 	case tLen <= 10:
-		tInt, err := strconv.ParseInt(tStr, 10, 64)
+		tInt, err := strconv.ParseInt(string(tByte), 10, 64)
 		if err != nil {
 			return tNow
 		}

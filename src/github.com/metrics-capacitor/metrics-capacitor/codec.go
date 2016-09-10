@@ -6,5 +6,5 @@ import (
 )
 
 type Codec interface {
-	Decode(io.ReadWriter) ([]Metric, time.Duration, []error)
+	Decode(io.Reader) ([]Metric, time.Duration, []error)
 }

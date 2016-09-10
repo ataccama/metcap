@@ -43,14 +43,14 @@ func NewLogger(syslog_enabled *bool, debugFlag *Flag) *Logger {
 func (l *Logger) Run() error {
 	for {
 		select {
-		case line := <-l.cDebug:
-			l.Log(line, syslog.LOG_DEBUG)
-		case line := <-l.cInfo:
-			l.Log(line, syslog.LOG_INFO)
-		case line := <-l.cErr:
-			l.Log(line, syslog.LOG_ERR)
 		case line := <-l.cAlert:
 			l.Log(line, syslog.LOG_ALERT)
+		case line := <-l.cErr:
+			l.Log(line, syslog.LOG_ERR)
+		case line := <-l.cInfo:
+			l.Log(line, syslog.LOG_INFO)
+		case line := <-l.cDebug:
+			l.Log(line, syslog.LOG_DEBUG)
 		}
 	}
 }
