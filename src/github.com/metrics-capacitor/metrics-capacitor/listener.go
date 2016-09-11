@@ -49,8 +49,6 @@ func NewListener(name string, c ListenerConfig, t Transport, moduleWg *sync.Wait
 		return Listener{}, err
 	}
 
-	// var wg sync.WaitGroup
-
 	return Listener{
 		Name:      name,
 		Socket:    sock,

@@ -15,15 +15,16 @@ type RedisTransport struct {
 	Queue           string
 	ListenerEnabled bool
 	WriterEnabled   bool
-	Listener        chan *Metric
-	Writer          chan *Metric
+	Input           chan *Metric
+	Output          chan *Metric
 	ExitChan        chan bool
 	ExitFlag        *Flag
 	Wg              *sync.WaitGroup
+	Logger          *Logger
 }
 
 // NewRedisTransport
-func NewRedisTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bool, exitFlag *Flag) *RedisTransport {
+func NewRedisTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bool, exitFlag *Flag, logger *Logger) (*RedisTransport, error) {
 	connRe := regexp.MustCompile(`^(?P<network>(tcp|unix)):/{2,3}(?P<addr>[0-9a-zA-Z\._]+:[0-9]+)|(?P<db>1?[0-9])?$`)
 	connMatch := connRe.FindStringSubmatch(c.RedisURL)
 	connData := map[string]string{}
@@ -38,30 +39,43 @@ func NewRedisTransport(c *TransportConfig, listenerEnabled bool, writerEnabled b
 	if connData["db"] == "" {
 		connData["db"] = "0"
 	}
-	dbNum, _ := strconv.Atoi(connData["db"])
+	dbNum, err := strconv.Atoi(connData["db"])
+	if err != nil {
+		return nil, &TransportError{"redis", err}
+	}
 
 	if c.RedisQueue == "" {
 		c.RedisQueue = "default"
 	}
 
+	conn := redis.NewClient(&redis.Options{
+		Network:     connData["network"],
+		Addr:        connData["addr"],
+		DB:          dbNum,
+		MaxRetries:  c.RedisRetries,
+		PoolSize:    c.RedisConnections,
+		PoolTimeout: time.Duration(c.RedisTimeout) * time.Second},
+	)
+
+	_, err = conn.Ping().Result()
+	if err != nil {
+		return nil, &TransportError{"redis", err}
+	}
+
 	return &RedisTransport{
-		Redis: redis.NewClient(&redis.Options{
-			Network:     connData["network"],
-			Addr:        connData["addr"],
-			DB:          dbNum,
-			PoolSize:    c.RedisConnections,
-			PoolTimeout: time.Duration(c.RedisTimeout) * time.Second}),
+		Redis:           conn,
 		Size:            c.BufferSize,
 		Queue:           "metcap:" + c.RedisQueue,
 		Wait:            c.RedisWait,
 		ListenerEnabled: listenerEnabled,
 		WriterEnabled:   writerEnabled,
-		Listener:        make(chan *Metric, c.BufferSize),
-		Writer:          make(chan *Metric, c.BufferSize),
+		Input:           make(chan *Metric, c.BufferSize),
+		Output:          make(chan *Metric, c.BufferSize),
 		ExitChan:        make(chan bool, 1),
 		ExitFlag:        exitFlag,
 		Wg:              &sync.WaitGroup{},
-	}
+		Logger:          logger,
+	}, nil
 }
 
 func (t *RedisTransport) Start() {
@@ -72,8 +86,11 @@ func (t *RedisTransport) Start() {
 			defer t.Wg.Done()
 			for {
 				select {
-				case m := <-t.Listener:
-					t.Redis.RPush(t.Queue, m.Serialize()).Err()
+				case m := <-t.Input:
+					err := t.Redis.RPush(t.Queue, m.Serialize()).Err()
+					if err != nil {
+						t.Logger.Errorf("[redis] Failed to push metric: %v - %v", err, err.Error())
+					}
 				case <-t.ExitChan:
 					return
 				}
@@ -86,17 +103,20 @@ func (t *RedisTransport) Start() {
 			t.Wg.Add(1)
 			defer t.Wg.Done()
 			for {
-				switch {
-				case t.ExitFlag.Get():
+				if t.ExitFlag.Get() {
 					t.ExitChan <- true
 					return
-				default:
-					m := t.Redis.BLPop(time.Duration(t.Wait)*time.Second, t.Queue).Val()
-					if m != nil {
-						metric, err := DeserializeMetric(m[1])
-						if err == nil {
-							t.Writer <- &metric
-						}
+				}
+				m, err := t.Redis.BLPop(time.Duration(t.Wait)*time.Second, t.Queue).Result()
+				if err != nil {
+					t.Logger.Errorf("[redis] Failed to get metric: %v - %v", err, err.Error())
+				}
+				if m != nil {
+					metric, err := DeserializeMetric(m[1])
+					if err == nil {
+						t.Output <- &metric
+					} else {
+						t.Logger.Errorf("[redis] failed to DeserializeMetric(): %v - %v", err, err.Error())
 					}
 				}
 			}
@@ -110,9 +130,9 @@ func (t *RedisTransport) Stop() {
 }
 
 func (t *RedisTransport) ListenerChan() chan<- *Metric {
-	return t.Listener
+	return t.Input
 }
 
 func (t *RedisTransport) WriterChan() <-chan *Metric {
-	return t.Writer
+	return t.Output
 }

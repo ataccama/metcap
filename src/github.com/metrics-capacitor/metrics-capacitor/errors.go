@@ -8,7 +8,7 @@ type TransportError struct {
 }
 
 func (e *TransportError) Error() string {
-	return fmt.Sprintf("[%s] Error: %s", e.provider, e.err.Error())
+	return fmt.Sprintf("[%s] Error: %v", e.provider, e.err)
 }
 
 type CodecError struct {
@@ -18,5 +18,5 @@ type CodecError struct {
 }
 
 func (e *CodecError) Error() string {
-	return fmt.Sprintf("%s - &v [%v]", e.msg, e.err, e.src)
+	return fmt.Sprintf("%s - %v [%v]", e.msg, e.err, e.src)
 }

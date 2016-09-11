@@ -22,6 +22,7 @@ type TransportConfig struct {
 	RedisURL         string `toml:"redis_url"`
 	RedisTimeout     int    `toml:"redis_timeout"`
 	RedisWait        int    `toml:"redis_wait"`
+	RedisRetries     int    `toml:"redis_retries"`
 	RedisConnections int    `toml:"redis_connections"`
 	RedisQueue       string `toml:"redis_queue"`
 	AMQPURL          string `toml:"amqp_url"`

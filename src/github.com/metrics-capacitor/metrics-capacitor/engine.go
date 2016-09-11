@@ -52,6 +52,7 @@ func (e *Engine) Run() {
 
 	// initialize transport
 	logger.Infof("[engine] Using '%s' transport", e.Config.Transport.Type)
+	var err error
 	switch e.Config.Transport.Type {
 	case "channel":
 		if listenerEnabled == false || writerEnabled == false {
@@ -60,16 +61,15 @@ func (e *Engine) Run() {
 		}
 		transport = NewChannelTransport(&e.Config.Transport)
 	case "redis":
-		transport = NewRedisTransport(&e.Config.Transport, listenerEnabled, writerEnabled, exitFlag)
+		transport, err = NewRedisTransport(&e.Config.Transport, listenerEnabled, writerEnabled, exitFlag, logger)
 	case "amqp":
-		var err error
 		transport, err = NewAMQPTransport(&e.Config.Transport, listenerEnabled, writerEnabled, exitFlag, logger)
-		if err != nil {
-			logger.Alertf("[engine] Failed to set-up transport: %v", err)
-			os.Exit(1)
-		}
 	default:
 		logger.Alertf("[engine] Transport '%s' not implemented", e.Config.Transport.Type)
+		os.Exit(1)
+	}
+	if err != nil {
+		logger.Alertf("[engine] Failed to set-up transport: %v", err)
 		os.Exit(1)
 	}
 

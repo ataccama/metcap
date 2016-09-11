@@ -47,6 +47,7 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 	var err error
 	queue := "metcap:" + c.AMQPTag
 	exchange := "metcap:" + c.AMQPTag
+	key := "metcap:" + c.AMQPTag
 
 	if listenerEnabled {
 		inputConn, inputChannel, err = amqpInit(c)
@@ -87,11 +88,11 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 		}
 
 		err = outputChannel.QueueBind(
-			queue, // queue name
-			"metcap:"+c.AMQPTag, // key name
-			exchange,            // exchange name
-			false,               // no-wait?
-			nil,                 // arguments
+			queue,    // queue name
+			key,      // key name
+			exchange, // exchange name
+			false,    // no-wait?
+			nil,      // arguments
 		)
 		if err != nil {
 			return nil, &TransportError{"amqp", err}
