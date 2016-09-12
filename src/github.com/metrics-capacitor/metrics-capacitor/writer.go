@@ -117,7 +117,7 @@ func (w *Writer) Start() {
 				Doc(string(metric.JSON()))
 			w.Processor.Add(req)
 		case <-exitChan:
-			w.Logger.Debug("[writer] Flushing unwritten data...")
+			w.Logger.Info("[writer] Flushing unwritten data...")
 			w.Processor.Flush()
 			w.Logger.Debug("[writer] Closing bulk-processor")
 			w.Processor.Close()
@@ -128,7 +128,7 @@ func (w *Writer) Start() {
 }
 
 func (w *Writer) hookBeforeCommit(id int64, reqs []elastic.BulkableRequest) {
-	w.Logger.Debugf("[writer] Committing %d requests", len(reqs))
+	w.Logger.Debugf("[writer] Committing %d metrics", len(reqs))
 }
 
 func (w *Writer) hookAfterCommit(id int64, reqs []elastic.BulkableRequest, res *elastic.BulkResponse, err error) {
@@ -137,6 +137,6 @@ func (w *Writer) hookAfterCommit(id int64, reqs []elastic.BulkableRequest, res *
 		w.Logger.Errorf("[writer] Failed to commit %d metrics", len(res.Failed()))
 	}
 	if err != nil {
-		w.Logger.Error(err.Error())
+		w.Logger.Errorf("[writer] %v", err.Error())
 	}
 }

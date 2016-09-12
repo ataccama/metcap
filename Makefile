@@ -58,7 +58,7 @@ pkg:
 
 sources := $(shell find src/$(LIB_PATH) -name '*.go')
 pkg/linux_amd64/$(LIB_PATH).a: pkg $(sources)
-	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && time go fmt $(LIB_PATH)'
+	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && time go fmt $(LIB_PATH) && time go vet $(LIB_PATH)'
 	$(DOCKER) $(D_RUN) $(IMG_DEV) bash -c 'cd /go && time go install -v -a $(LIB_PATH)'
 
 .PHONY: test

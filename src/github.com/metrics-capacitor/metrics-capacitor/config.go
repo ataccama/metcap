@@ -28,8 +28,7 @@ type TransportConfig struct {
 	AMQPURL          string `toml:"amqp_url"`
 	AMQPTag          string `toml:"amqp_tag"`
 	AMQPTimeout      int    `toml:"amqp_timeout"`
-	AMQPConsumers    int    `toml:"amqp_consumers"`
-	AMQPProducers    int    `toml:"amqp_producers"`
+	AMQPWorkers      int    `toml:"amqp_workers"`
 }
 
 type ListenerConfig struct {

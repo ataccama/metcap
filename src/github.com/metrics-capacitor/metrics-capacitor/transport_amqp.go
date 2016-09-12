@@ -14,8 +14,7 @@ type AMQPTransport struct {
 	InputChannel    *amqp.Channel
 	OutputChannel   *amqp.Channel
 	Size            int
-	Consumers       int
-	Producers       int
+	Workers         int
 	Exchange        string
 	Queue           string
 	ListenerEnabled bool
@@ -105,8 +104,7 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 		InputChannel:    inputChannel,
 		OutputChannel:   outputChannel,
 		Size:            c.BufferSize,
-		Consumers:       c.AMQPConsumers,
-		Producers:       c.AMQPProducers,
+		Workers:         c.AMQPWorkers,
 		Exchange:        exchange,
 		Queue:           queue,
 		ListenerEnabled: listenerEnabled,
@@ -141,7 +139,7 @@ func amqpInit(c *TransportConfig) (*amqp.Connection, *amqp.Channel, error) {
 func (t *AMQPTransport) Start() {
 
 	if t.ListenerEnabled {
-		for producerCount := 1; producerCount <= t.Producers; producerCount++ {
+		for producerCount := 1; producerCount <= t.Workers; producerCount++ {
 			go func(i int) {
 				t.Wg.Add(1)
 				defer t.Wg.Done()
@@ -174,7 +172,7 @@ func (t *AMQPTransport) Start() {
 	}
 
 	if t.WriterEnabled {
-		for consumerCount := 1; consumerCount <= t.Consumers; consumerCount++ {
+		for consumerCount := 1; consumerCount <= t.Workers; consumerCount++ {
 			go func(i int) {
 				t.Wg.Add(1)
 				defer t.Wg.Done()
@@ -212,10 +210,10 @@ func (t *AMQPTransport) Start() {
 	go func() {
 		goroutines := 0
 		if t.ListenerEnabled {
-			goroutines = goroutines + t.Producers
+			goroutines = goroutines + t.Workers
 		}
 		if t.WriterEnabled {
-			goroutines = goroutines + t.Consumers
+			goroutines = goroutines + t.Workers
 		}
 
 		for {
