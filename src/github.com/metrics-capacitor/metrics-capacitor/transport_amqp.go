@@ -136,6 +136,23 @@ func amqpInit(c *TransportConfig) (*amqp.Connection, *amqp.Channel, error) {
 	return conn, channel, nil
 }
 
+func (t *AMQPTransport) publish(m *Metric) error {
+	return t.InputChannel.Publish(
+		t.Exchange, // exchange
+		t.Exchange, // routing key
+		false,      // mandatory?
+		false,      // immediate?
+		amqp.Publishing{ // message definition
+			Headers:         amqp.Table{},          // AMQP message headers
+			ContentType:     "application/msgpack", // content type
+			ContentEncoding: "UTF-8",               // encoding
+			Body:            m.Serialize(),         // serialized metric data
+			DeliveryMode:    amqp.Transient,        // AMQP message delivery mode
+			Priority:        0,                     // AMQP message priority
+		},
+	)
+}
+
 func (t *AMQPTransport) Start() {
 
 	if t.ListenerEnabled {
@@ -146,24 +163,22 @@ func (t *AMQPTransport) Start() {
 				for {
 					select {
 					case m := <-t.Input:
-						err := t.InputChannel.Publish(
-							t.Exchange, // exchange
-							t.Exchange, // routing key
-							false,      // mandatory?
-							false,      // immediate?
-							amqp.Publishing{ // message definition
-								Headers:         amqp.Table{},          // AMQP message headers
-								ContentType:     "application/msgpack", // content type
-								ContentEncoding: "UTF-8",               // encoding
-								Body:            m.Serialize(),         // serialized metric data
-								DeliveryMode:    amqp.Transient,        // AMQP message delivery mode
-								Priority:        0,                     // AMQP message priority
-							},
-						)
+						err := t.publish(m)
 						if err != nil {
 							t.Logger.Errorf("[amqp] Failed to publish metric: %v", err)
 						}
 					case <-t.ExitChan:
+						time.Sleep(1 * time.Second)
+						for len(t.Input) > 0 {
+							for len(t.Input) > 0 {
+								m := <-t.Input
+								err := t.publish(m)
+								if err != nil {
+									t.Logger.Errorf("[amqp] Failed to publish metric: %v", err)
+								}
+							}
+							time.Sleep(5 * time.Second)
+						}
 						return
 					}
 				}
@@ -200,6 +215,9 @@ func (t *AMQPTransport) Start() {
 						t.Output <- &metric
 						message.Ack(false)
 					case <-t.ExitChan:
+						for len(t.Output) > 0 {
+							time.Sleep(1 * time.Second)
+						}
 						return
 					}
 				}
@@ -232,10 +250,16 @@ func (t *AMQPTransport) Start() {
 
 func (t *AMQPTransport) Stop() {
 	t.Wg.Wait()
-	t.InputChannel.Close()
-	t.InputConn.Close()
-	t.OutputChannel.Close()
-	t.OutputConn.Close()
+	if t.ListenerEnabled {
+		close(t.Input)
+		t.InputChannel.Close()
+		t.InputConn.Close()
+	}
+	if t.WriterEnabled {
+		close(t.Output)
+		t.OutputChannel.Close()
+		t.OutputConn.Close()
+	}
 }
 
 func (t *AMQPTransport) ListenerChan() chan<- *Metric {

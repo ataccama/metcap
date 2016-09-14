@@ -19,10 +19,8 @@ type Listener struct {
 	Transport Transport
 	Codec     Codec
 	Logger    *Logger
+	Stats     ListenerStats
 	ExitFlag  *Flag
-}
-
-type ListenerStatus struct {
 }
 
 func NewListener(name string, c ListenerConfig, t Transport, moduleWg *sync.WaitGroup, logger *Logger, exitFlag *Flag) (Listener, error) {
@@ -77,16 +75,18 @@ func (l *Listener) Start() {
 			conn, err := l.Socket.Accept()
 			switch {
 			case err == nil && conn != nil: // connection
-				l.Logger.Debugf("[listener:%s] Accepted connection from %s", l.Name, conn.RemoteAddr().String())
+				l.DataWg.Add(1)
+				t0 := time.Now()
+				// l.Logger.Debugf("[listener:%s] Accepted connection from %s", l.Name, conn.RemoteAddr().String())
 				iBuf := bufio.NewReader(conn)
 				var oBuf bytes.Buffer
 				_, err := io.Copy(&oBuf, iBuf)
 				conn.Close()
 				if err != nil {
-					l.Logger.Alertf("[listener:%s] Error handling connection data: %v", err)
+					l.Logger.Alertf("[listener:%s] Error reading connection data from %s: %v", conn.RemoteAddr().String(), err)
 					continue
 				}
-				l.Logger.Debugf("[listener:%s] Closing connection to %s", l.Name, conn.RemoteAddr().String())
+				l.Logger.Debugf("[listener:%s] Handled connection from %s, %d bytes, took %v", l.Name, conn.RemoteAddr().String(), oBuf.Len(), time.Since(t0))
 				dataPipe <- &oBuf
 			case err != nil && conn != nil: // other error
 				l.Logger.Errorf("[listener:%s] Can't accept connection from %s: %v", l.Name, conn.RemoteAddr().String(), err)
@@ -104,12 +104,10 @@ func (l *Listener) Start() {
 				l.Logger.Debugf("[listener:%s] Closing LISTEN socket", l.Name)
 				l.Socket.Close()
 				l.Logger.Infof("[listener:%s] Socket closed", l.Name)
-				l.Logger.Debugf("[listener:%s] Processing remaining metrics", l.Name)
-				l.DataWg.Wait()
 				exitChan <- true
 				return
 			}
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 		}
 	}()
 
@@ -117,25 +115,37 @@ func (l *Listener) Start() {
 	for {
 		select {
 		case data := <-dataPipe:
-			go func(data *bytes.Buffer) {
-				l.DataWg.Add(1)
-				defer l.DataWg.Done()
-				metrics, took, errs := l.Codec.Decode(bytes.NewReader(data.Bytes()))
-				if len(errs) > 0 {
-					l.Logger.Errorf("[listener:%s] Failed to decode %d metrics!", l.Name, len(errs))
-					// log the metric raw data?
-				}
-				l.Logger.Debugf("[listener:%s] Decoded %d metrics, took %v", l.Name, len(metrics), took)
-				for _, metric := range metrics {
-					l.Transport.ListenerChan() <- &metric
-				}
-			}(data)
+			go l.send(data)
 		case <-exitChan:
-			l.Logger.Infof("[listener:%s] Remaining metrics processed", l.Name)
+			time.Sleep(5 * time.Second)
+			l.Logger.Infof("[listener:%s] Processing remaining data...", l.Name)
+			for len(dataPipe) > 0 {
+				l.Logger.Debugf("[listener:%s] Remaining %d metrics to process", l.Name, len(dataPipe))
+				for len(dataPipe) > 0 {
+					go l.send(<-dataPipe)
+				}
+				time.Sleep(5 * time.Second)
+			}
+			l.Logger.Debugf("[listener:%s] Waiting for metrics decoding to finish", l.Name)
 			l.DataWg.Wait()
+			l.Logger.Infof("[listener:%s] Remaining metrics processed", l.Name)
 			l.Logger.Infof("[listener:%s] Stopped", l.Name)
+			close(exitChan)
 			return
 		}
 	}
 
+}
+
+func (l *Listener) send(data *bytes.Buffer) {
+	defer l.DataWg.Done()
+	metrics, took, errs := l.Codec.Decode(bytes.NewReader(data.Bytes()))
+	if len(errs) > 0 {
+		l.Logger.Errorf("[listener:%s] Failed to decode %d metrics!", l.Name, len(errs))
+		// log the metric raw data?
+	}
+	l.Logger.Debugf("[listener:%s] Decoded %d metrics, took %v", l.Name, len(metrics), took)
+	for _, metric := range metrics {
+		l.Transport.ListenerChan() <- &metric
+	}
 }

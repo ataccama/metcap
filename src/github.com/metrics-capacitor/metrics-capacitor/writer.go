@@ -15,6 +15,7 @@ type Writer struct {
 	Processor *elastic.BulkProcessor
 	Logger    *Logger
 	ExitFlag  *Flag
+	Stats     *WriterStats
 }
 
 func NewWriter(c *WriterConfig, t Transport, module_wg *sync.WaitGroup, logger *Logger, exitFlag *Flag) (*Writer, error) {
@@ -53,9 +54,9 @@ func NewWriter(c *WriterConfig, t Transport, module_wg *sync.WaitGroup, logger *
 		}
 		if !res.Acknowledged {
 			logger.Error("[writer] Failed to acknowledge the new index mapping template")
-		} else {
-			logger.Info("[writer] New index mapping template acknowledged")
+			return &Writer{}, err
 		}
+		logger.Info("[writer] New index mapping template acknowledged")
 	}
 
 	return &Writer{
@@ -65,6 +66,7 @@ func NewWriter(c *WriterConfig, t Transport, module_wg *sync.WaitGroup, logger *
 		Elastic:   es,
 		Logger:    logger,
 		ExitFlag:  exitFlag,
+		Stats:     NewWriterStats(),
 	}, nil
 }
 
@@ -110,21 +112,32 @@ func (w *Writer) Start() {
 
 	for {
 		select {
-		case metric := <-w.Transport.WriterChan():
-			req := elastic.NewBulkIndexRequest().
-				Index(metric.Index(w.Config.Index)).
-				Type(w.Config.DocType).
-				Doc(string(metric.JSON()))
-			w.Processor.Add(req)
+		case m := <-w.Transport.WriterChan():
+			w.send(m)
 		case <-exitChan:
-			w.Logger.Info("[writer] Flushing unwritten data...")
-			w.Processor.Flush()
-			w.Logger.Debug("[writer] Closing bulk-processor")
+			time.Sleep(5 * time.Second)
+			w.Logger.Info("[writer] Writing remaining data...")
+			for len(w.Transport.WriterChan()) > 0 {
+				for len(w.Transport.WriterChan()) > 0 {
+					w.send(<-w.Transport.WriterChan())
+				}
+				w.Logger.Debug("[writer] Waiting for more buffered data to gather")
+				time.Sleep(5 * time.Second)
+			}
+			w.Logger.Debug("[writer] No more data to write")
 			w.Processor.Close()
 			w.Logger.Info("[writer] Stopped")
+			close(exitChan)
 			return
 		}
 	}
+}
+
+func (w *Writer) send(m *Metric) {
+	w.Processor.Add(elastic.NewBulkIndexRequest().
+		Index(m.Index(w.Config.Index)).
+		Type(w.Config.DocType).
+		Doc(string(m.JSON())))
 }
 
 func (w *Writer) hookBeforeCommit(id int64, reqs []elastic.BulkableRequest) {
@@ -132,7 +145,7 @@ func (w *Writer) hookBeforeCommit(id int64, reqs []elastic.BulkableRequest) {
 }
 
 func (w *Writer) hookAfterCommit(id int64, reqs []elastic.BulkableRequest, res *elastic.BulkResponse, err error) {
-	w.Logger.Infof("[writer] Successfully commited %d metrics", len(res.Succeeded()))
+	w.Logger.Debugf("[writer] Successfully commited %d metrics", len(res.Succeeded()))
 	if len(res.Failed()) > 0 {
 		w.Logger.Errorf("[writer] Failed to commit %d metrics", len(res.Failed()))
 	}

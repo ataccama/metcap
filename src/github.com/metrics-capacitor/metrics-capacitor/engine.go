@@ -103,46 +103,32 @@ func (e *Engine) Run() {
 		sig := <-e.SignalChan
 		switch {
 		case sig == syscall.SIGINT || sig == syscall.SIGTERM:
-			logger.Info("[engine] Caught signal to shutdown...")
+			if sig == syscall.SIGINT {
+				logger.Info("[engine] Received SIGINT - shutting down")
+			} else {
+				logger.Info("[engine] Received SIGTERM - shutting down")
+			}
 			exitFlag.Raise()
 			logger.Debug("[engine] Waiting for workers to stop")
 			e.Workers.Wait()
 			logger.Debug("[engine] Waiting for transport to terminate")
 			transport.Stop()
+			logger.Debugf("[engine] Transport queues: IN:%d/OUT:%d", len(transport.ListenerChan()), len(transport.WriterChan()))
 			logger.Info("[engine] Exiting...")
 			time.Sleep(1 * time.Second)
 			os.Exit(0)
 		case sig == syscall.SIGUSR1:
-			logger.Info("[engine] Enabling debug mode via signal")
-			debugFlag.Raise()
+			if debugFlag.Get() {
+				logger.Info("[engine] Received SIGUSR1 - disabling DEBUG mode")
+			} else {
+				logger.Info("[engine] Received SIGUSR1 - enabling DEBUG mode")
+			}
+			debugFlag.Flip()
 		case sig == syscall.SIGUSR2:
-			logger.Info("[engine] Disabling debug mode via signal")
-			debugFlag.Lower()
+			logger.Info("[engine] Resetting counters")
+			// do
 		default:
 			logger.Errorf("[engine] Unknown signal %v", sig)
 		}
 	}
-}
-
-type Flag struct {
-	*sync.Mutex
-	val bool
-}
-
-func (f *Flag) Get() bool {
-	f.Lock()
-	defer f.Unlock()
-	return f.val
-}
-
-func (f *Flag) Raise() {
-	f.Lock()
-	f.val = true
-	f.Unlock()
-}
-
-func (f *Flag) Lower() {
-	f.Lock()
-	f.val = false
-	f.Unlock()
 }
