@@ -2,9 +2,10 @@ package metcap
 
 import (
 	"fmt"
-	syslog "github.com/RackSec/srslog"
 	"log"
 	"os"
+
+	syslog "github.com/RackSec/srslog"
 )
 
 type Logger struct {

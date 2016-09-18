@@ -1,11 +1,12 @@
 package metcap
 
 import (
-	"gopkg.in/redis.v4"
 	"regexp"
 	"strconv"
 	"sync"
 	"time"
+
+	"gopkg.in/redis.v4"
 )
 
 type RedisTransport struct {
@@ -129,10 +130,48 @@ func (t *RedisTransport) Stop() {
 	t.Redis.Close()
 }
 
-func (t *RedisTransport) ListenerChan() chan<- *Metric {
+func (t *RedisTransport) StopOutput() {
+	return
+}
+
+func (t *RedisTransport) StopInput() {
+	return
+}
+
+func (t *RedisTransport) InputChan() chan<- *Metric {
 	return t.Input
 }
 
-func (t *RedisTransport) WriterChan() <-chan *Metric {
+func (t *RedisTransport) OutputChan() <-chan *Metric {
 	return t.Output
 }
+
+func (t *RedisTransport) InputChanLen() int {
+	return len(t.Input)
+}
+
+func (t *RedisTransport) OutputChanLen() int {
+	return len(t.Output)
+}
+
+func (t *RedisTransport) LogReport() {
+
+}
+
+type RedisTransportStats struct {
+	QueueSize     *StatsGauge
+	InputChannel  *StatsGauge
+	OutputChannel *StatsGauge
+}
+
+func NewRedisTransportStats() *RedisTransportStats {
+	return &RedisTransportStats{
+		QueueSize:     NewStatsGauge(),
+		InputChannel:  NewStatsGauge(),
+		OutputChannel: NewStatsGauge(),
+	}
+}
+
+func (s *RedisTransportStats) Reset() {}
+
+func (s *RedisTransportStats) Report() {}

@@ -3,17 +3,19 @@ package metcap
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
 
 type Config struct {
-	Syslog     bool
-	Debug      bool
-	Transport  TransportConfig
-	Listener   map[string]ListenerConfig
-	Writer     WriterConfig
-	Aggregator AggregatorConfig
+	Syslog      bool
+	Debug       bool
+	ReportEvery configDuration `toml:"report_every"`
+	Transport   TransportConfig
+	Listener    map[string]ListenerConfig
+	Writer      WriterConfig
+	Aggregator  AggregatorConfig
 }
 
 type TransportConfig struct {
@@ -35,20 +37,31 @@ type ListenerConfig struct {
 	Port        int
 	Protocol    string
 	Codec       string
+	Decoders    int
 	MutatorFile string `toml:"mutator_file"`
 }
 
 type WriterConfig struct {
-	URLs        []string `toml:"urls"`
-	Timeout     int      `toml:"timeout"`
-	Concurrency int      `toml:"concurrency"`
-	BulkMax     int      `toml:"bulk_max"`
-	BulkWait    int      `toml:"bulk_wait"`
-	Index       string
-	DocType     string `toml:"doc_type"`
+	URLs        []string       `toml:"urls"`
+	Timeout     int            `toml:"timeout"`
+	Concurrency int            `toml:"concurrency"`
+	BulkMax     int            `toml:"bulk_max"`
+	BulkWait    configDuration `toml:"bulk_wait"`
+	Index       string         `toml:"index"`
+	DocType     string         `toml:"doc_type"`
 }
 
 type AggregatorConfig struct{}
+
+type configDuration struct {
+	time.Duration
+}
+
+func (d *configDuration) UnmarshalText(text []byte) error {
+	var err error
+	d.Duration, err = time.ParseDuration(string(text))
+	return err
+}
 
 // ReadConfig
 //

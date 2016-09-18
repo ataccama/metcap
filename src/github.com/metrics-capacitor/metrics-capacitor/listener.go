@@ -14,12 +14,13 @@ type Listener struct {
 	Name      string
 	Socket    net.Listener
 	Config    ListenerConfig
+	ConnWg    sync.WaitGroup
 	DataWg    sync.WaitGroup
 	ModuleWg  *sync.WaitGroup
 	Transport Transport
 	Codec     Codec
 	Logger    *Logger
-	Stats     ListenerStats
+	Stats     *ListenerStats
 	ExitFlag  *Flag
 }
 
@@ -51,12 +52,14 @@ func NewListener(name string, c ListenerConfig, t Transport, moduleWg *sync.Wait
 		Name:      name,
 		Socket:    sock,
 		Config:    c,
+		ConnWg:    sync.WaitGroup{},
 		DataWg:    sync.WaitGroup{},
 		ModuleWg:  moduleWg,
 		Transport: t,
 		Codec:     codec,
 		Logger:    logger,
 		ExitFlag:  exitFlag,
+		Stats:     NewListenerStats(),
 	}, nil
 }
 
@@ -66,86 +69,198 @@ func (l *Listener) Start() {
 
 	l.Logger.Infof("[listener:%s] Starting to accept connections", l.Name)
 
-	dataPipe := make(chan *bytes.Buffer)
-	exitChan := make(chan bool, 1)
+	connPipe := make(chan *net.Conn, 1000)
+	dataPipe := make(chan *bytes.Buffer, 100000)
+	exitMux := make(chan struct{}, 1)
+	exitDecoders := make(chan struct{})
+	exitFinished := make(chan struct{}, 1)
+	decoderWg := sync.WaitGroup{}
 
 	// connection acceptor
 	go func() {
 		for {
 			conn, err := l.Socket.Accept()
-			switch {
-			case err == nil && conn != nil: // connection
-				l.DataWg.Add(1)
-				t0 := time.Now()
-				// l.Logger.Debugf("[listener:%s] Accepted connection from %s", l.Name, conn.RemoteAddr().String())
-				iBuf := bufio.NewReader(conn)
-				var oBuf bytes.Buffer
-				_, err := io.Copy(&oBuf, iBuf)
-				conn.Close()
-				if err != nil {
-					l.Logger.Alertf("[listener:%s] Error reading connection data from %s: %v", conn.RemoteAddr().String(), err)
-					continue
-				}
-				l.Logger.Debugf("[listener:%s] Handled connection from %s, %d bytes, took %v", l.Name, conn.RemoteAddr().String(), oBuf.Len(), time.Since(t0))
-				dataPipe <- &oBuf
-			case err != nil && conn != nil: // other error
-				l.Logger.Errorf("[listener:%s] Can't accept connection from %s: %v", l.Name, conn.RemoteAddr().String(), err)
-			case err != nil && conn == nil: // exiting
-				return
+			if err != nil {
+				l.Logger.Errorf("[listener:%s] Can't accept connection: %v", l.Name, err)
+				break
 			}
+			l.ConnWg.Add(1)
+			l.Stats.ConnOpen.Increment(1)
+			connPipe <- &conn
+		}
+	}()
+
+	// decoder multiplexer
+	go func() {
+		for {
+			select {
+			case <-exitMux:
+				l.Logger.Debugf("[listener:%s] Closing LISTEN socket", l.Name)
+				l.Socket.Close()
+				l.Logger.Infof("[listener:%s] LISTEN socket closed", l.Name)
+				l.Logger.Debugf("[listener:%s] Waiting for connections to close", l.Name)
+				l.ConnWg.Wait()
+				l.Logger.Infof("[listener:%s] All connections closed", l.Name)
+				time.Sleep(10 * time.Millisecond)
+				l.Logger.Debugf("[listener:%s] Waiting for decoders to finish", l.Name)
+				l.DataWg.Wait()
+				for _n := 0; _n < l.Config.Decoders; _n++ {
+					exitDecoders <- struct{}{}
+				}
+				close(dataPipe)
+				decoderWg.Wait()
+				l.Logger.Infof("[listener:%s] Decoders finished", l.Name)
+				exitFinished <- struct{}{}
+				return
+			case conn := <-connPipe:
+				t0 := time.Now()
+				l.DataWg.Add(1)
+				go l.read(*conn, &dataPipe, t0)
+			}
+		}
+	}()
+
+	// decoders
+	for _n := 0; _n < l.Config.Decoders; _n++ {
+		go func() {
+			defer decoderWg.Done()
+			decoderWg.Add(1)
+			for {
+				select {
+				case data, ok := <-dataPipe:
+					if ok {
+						l.decode(data)
+					}
+				case <-exitDecoders:
+					func() {
+						for {
+							data, ok := <-dataPipe
+							if !ok {
+								return
+							}
+							l.decode(data)
+						}
+					}()
+					return
+				}
+			}
+		}()
+	}
+
+	// update dataPipe statistic
+	go func() {
+		for {
+			l.Stats.CodecToProcess.Set(int64(len(dataPipe)))
+			time.Sleep(1 * time.Second)
 		}
 	}()
 
 	// shutdown handler
-	go func() {
-		for {
-			if l.ExitFlag.Get() {
-				l.Logger.Infof("[listener:%s] Stopping...", l.Name)
-				l.Logger.Debugf("[listener:%s] Closing LISTEN socket", l.Name)
-				l.Socket.Close()
-				l.Logger.Infof("[listener:%s] Socket closed", l.Name)
-				exitChan <- true
-				return
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-	}()
-
-	// listener processing loop
 	for {
-		select {
-		case data := <-dataPipe:
-			go l.send(data)
-		case <-exitChan:
-			time.Sleep(5 * time.Second)
-			l.Logger.Infof("[listener:%s] Processing remaining data...", l.Name)
-			for len(dataPipe) > 0 {
-				l.Logger.Debugf("[listener:%s] Remaining %d metrics to process", l.Name, len(dataPipe))
-				for len(dataPipe) > 0 {
-					go l.send(<-dataPipe)
-				}
-				time.Sleep(5 * time.Second)
-			}
-			l.Logger.Debugf("[listener:%s] Waiting for metrics decoding to finish", l.Name)
-			l.DataWg.Wait()
-			l.Logger.Infof("[listener:%s] Remaining metrics processed", l.Name)
+		if l.ExitFlag.Get() {
+			l.Logger.Infof("[listener:%s] Stopping...", l.Name)
+			exitMux <- struct{}{}
+			<-exitFinished
 			l.Logger.Infof("[listener:%s] Stopped", l.Name)
-			close(exitChan)
 			return
 		}
+		time.Sleep(10 * time.Millisecond)
 	}
 
 }
 
-func (l *Listener) send(data *bytes.Buffer) {
+func (l *Listener) LogReport() {
+	l.Logger.Infof("[listener:%s] connections: %d/%d/%d/%.3f (open/total/total_failed/rate_per_sec), connection_time: %s/%s (avg/max)",
+		l.Name,
+		l.Stats.ConnOpen.Get(),
+		l.Stats.ConnProcessed.Total(),
+		l.Stats.ConnFailed.Total(),
+		l.Stats.ConnProcessed.Rate(time.Second),
+		l.Stats.ConnTime.Avg(),
+		l.Stats.ConnTime.Max(),
+	)
+	l.Logger.Infof("[listener:%s] decoders: %d/%d/%d (processing/to_process/total_processed), metrics: %d/%.3f (total_decoded/rate_per_sec), decoding_time: %s/%s (avg/max)",
+		l.Name,
+		l.Stats.CodecProcessing.Get(),
+		l.Stats.CodecToProcess.Get(),
+		l.Stats.CodecProcessed.Total(),
+		l.Stats.CodecDecodedMetrics.Total(),
+		l.Stats.CodecDecodedMetrics.Rate(time.Second),
+		l.Stats.CodecTime.Avg(),
+		l.Stats.CodecTime.Max(),
+	)
+
+}
+
+func (l *Listener) read(conn net.Conn, pipe *chan *bytes.Buffer, tStart time.Time) {
+	defer l.Stats.ConnProcessed.Increment(1)
+	defer l.ConnWg.Done()
+	l.Logger.Debugf("[listener:%s] Accepted connection from %s", l.Name, conn.RemoteAddr().String())
+	iBuf := bufio.NewReader(conn)
+	var oBuf bytes.Buffer
+	_, err := io.Copy(&oBuf, iBuf)
+	conn.Close()
+	dur := time.Since(tStart)
+	l.Stats.ConnOpen.Decrement(1)
+	if err != nil {
+		l.Stats.ConnFailed.Increment(1)
+		l.Logger.Errorf("[listener:%s] Error reading connection data from %s: %v", l.Name, conn.RemoteAddr().String(), err)
+		return
+	}
+	l.Logger.Debugf("[listener:%s] Handled connection from %s, %d bytes, took %v", l.Name, conn.RemoteAddr().String(), oBuf.Len(), dur)
+	l.Stats.ConnTime.Add(dur)
+	*pipe <- &oBuf
+
+}
+
+func (l *Listener) decode(data *bytes.Buffer) {
+	defer l.Stats.CodecProcessed.Increment(1)
+	defer l.Stats.CodecProcessing.Decrement(1)
 	defer l.DataWg.Done()
+	l.Stats.CodecProcessing.Increment(1)
 	metrics, took, errs := l.Codec.Decode(bytes.NewReader(data.Bytes()))
 	if len(errs) > 0 {
 		l.Logger.Errorf("[listener:%s] Failed to decode %d metrics!", l.Name, len(errs))
 		// log the metric raw data?
 	}
+	l.Stats.CodecDecodedMetrics.Increment(len(metrics))
+	l.Stats.CodecTime.Add(took)
 	l.Logger.Debugf("[listener:%s] Decoded %d metrics, took %v", l.Name, len(metrics), took)
 	for _, metric := range metrics {
-		l.Transport.ListenerChan() <- &metric
+		l.Transport.InputChan() <- &metric
 	}
+}
+
+type ListenerStats struct {
+	ConnProcessed       *StatsCounter
+	ConnFailed          *StatsCounter
+	ConnOpen            *StatsGauge
+	ConnTime            *StatsTimer
+	CodecProcessed      *StatsCounter
+	CodecProcessing     *StatsGauge
+	CodecToProcess      *StatsGauge
+	CodecDecodedMetrics *StatsCounter
+	CodecTime           *StatsTimer
+}
+
+func NewListenerStats() *ListenerStats {
+	now := time.Now()
+	return &ListenerStats{
+		ConnProcessed:       NewStatsCounter(now),
+		ConnFailed:          NewStatsCounter(now),
+		ConnOpen:            NewStatsGauge(),
+		ConnTime:            NewStatsTimer(1000),
+		CodecProcessed:      NewStatsCounter(now),
+		CodecProcessing:     NewStatsGauge(),
+		CodecToProcess:      NewStatsGauge(),
+		CodecDecodedMetrics: NewStatsCounter(now),
+		CodecTime:           NewStatsTimer(1000),
+	}
+}
+
+func (s *ListenerStats) Reset() {
+	s.ConnProcessed.Reset()
+	s.ConnFailed.Reset()
+	s.CodecProcessed.Reset()
+	s.CodecDecodedMetrics.Reset()
 }

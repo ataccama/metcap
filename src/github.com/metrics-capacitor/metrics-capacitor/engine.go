@@ -42,6 +42,8 @@ func (e *Engine) Run() {
 
 	var listenerEnabled, writerEnabled bool = false, false
 	var transport Transport
+	var listeners []*Listener
+	var writers []*Writer
 
 	if e.Config.Writer.URLs != nil {
 		writerEnabled = true
@@ -59,7 +61,7 @@ func (e *Engine) Run() {
 			logger.Alert("[engine] Channel transport requires you to have both listener and writer enabled!")
 			os.Exit(1)
 		}
-		transport = NewChannelTransport(&e.Config.Transport)
+		transport = NewChannelTransport(&e.Config.Transport, logger)
 	case "redis":
 		transport, err = NewRedisTransport(&e.Config.Transport, listenerEnabled, writerEnabled, exitFlag, logger)
 	case "amqp":
@@ -80,6 +82,7 @@ func (e *Engine) Run() {
 			logger.Alert("[engine] Failed to initialize writer. Exiting")
 			os.Exit(1)
 		}
+		writers = append(writers, &writer)
 		go writer.Start()
 	}
 
@@ -89,14 +92,60 @@ func (e *Engine) Run() {
 			listener, err := NewListener(lName, cfg, transport, e.Workers, logger, exitFlag)
 			if err != nil {
 				logger.Alertf("[engine] Failed to initialize listener '%s'", lName)
-			} else {
-				go listener.Start()
+				continue
 			}
+			listeners = append(listeners, &listener)
+			go listener.Start()
 		}
 	}
 
 	// start transport
 	transport.Start()
+
+	stopReporter := make(chan struct{}, 1)
+	// stats report goroutine
+	go func() {
+		// report func
+		report := func() {
+			for _, listener := range listeners {
+				listener.LogReport()
+			}
+			transport.LogReport()
+			for _, writer := range writers {
+				writer.LogReport()
+			}
+		}
+		// sleepTime between reports
+		var sleepTime time.Duration
+		if e.Config.ReportEvery.Duration > 0 {
+			sleepTime = e.Config.ReportEvery.Duration
+		} else {
+			sleepTime = time.Duration(1 * time.Minute)
+		}
+
+		// ticker
+		tick := make(chan struct{}, 1)
+		go func() {
+			for {
+				tick <- struct{}{}
+				time.Sleep(sleepTime)
+			}
+		}()
+
+		// time.Sleep(5 * time.Second)
+
+		// report select-loop
+		for {
+			select {
+			case <-stopReporter:
+				report()
+				close(stopReporter)
+				return
+			case <-tick:
+				report()
+			}
+		}
+	}()
 
 	// signal handler
 	for {
@@ -109,14 +158,20 @@ func (e *Engine) Run() {
 				logger.Info("[engine] Received SIGTERM - shutting down")
 			}
 			exitFlag.Raise()
-			logger.Debug("[engine] Waiting for workers to stop")
+
 			e.Workers.Wait()
+
 			logger.Debug("[engine] Waiting for transport to terminate")
 			transport.Stop()
-			logger.Debugf("[engine] Transport queues: IN:%d/OUT:%d", len(transport.ListenerChan()), len(transport.WriterChan()))
+
+			stopReporter <- struct{}{}
+			time.Sleep(100 * time.Millisecond)
+			<-stopReporter
+
 			logger.Info("[engine] Exiting...")
-			time.Sleep(1 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 			os.Exit(0)
+
 		case sig == syscall.SIGUSR1:
 			if debugFlag.Get() {
 				logger.Info("[engine] Received SIGUSR1 - disabling DEBUG mode")
@@ -124,11 +179,28 @@ func (e *Engine) Run() {
 				logger.Info("[engine] Received SIGUSR1 - enabling DEBUG mode")
 			}
 			debugFlag.Flip()
+
 		case sig == syscall.SIGUSR2:
 			logger.Info("[engine] Resetting counters")
 			// do
+
 		default:
-			logger.Errorf("[engine] Unknown signal %v", sig)
+			logger.Errorf("[engine] Unknown signal: %v", sig)
 		}
 	}
+}
+
+func (e *Engine) logReport() {
+
+}
+
+type EngineStats struct {
+}
+
+func NewEngineStats() *EngineStats {
+	return &EngineStats{}
+}
+
+func (s *EngineStats) Reset() {
+
 }

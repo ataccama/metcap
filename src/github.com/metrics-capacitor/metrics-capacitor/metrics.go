@@ -3,8 +3,9 @@ package metcap
 import (
 	"encoding/json"
 	"fmt"
-	"gopkg.in/vmihailenco/msgpack.v2"
 	"time"
+
+	"gopkg.in/vmihailenco/msgpack.v2"
 )
 
 // Metric struct

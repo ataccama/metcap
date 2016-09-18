@@ -1,11 +1,12 @@
 package metcap
 
 import (
-	"github.com/streadway/amqp"
 	"net"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/streadway/amqp"
 )
 
 type AMQPTransport struct {
@@ -25,6 +26,7 @@ type AMQPTransport struct {
 	ExitFlag        *Flag
 	Wg              *sync.WaitGroup
 	Logger          *Logger
+	Stats           *AMQPTransportStats
 }
 
 // NewAMQPTransport
@@ -66,15 +68,7 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 		if err != nil {
 			return nil, &TransportError{"amqp", err}
 		}
-	}
-
-	if writerEnabled {
-		outputConn, outputChannel, err = amqpInit(c)
-		if err != nil {
-			return nil, &TransportError{"amqp", err}
-		}
-
-		_, err = outputChannel.QueueDeclare(
+		_, err = inputChannel.QueueDeclare(
 			queue, // queue name
 			true,  // durable?
 			false, // auto-delete?
@@ -86,13 +80,20 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 			return nil, &TransportError{"amqp", err}
 		}
 
-		err = outputChannel.QueueBind(
+		err = inputChannel.QueueBind(
 			queue,    // queue name
 			key,      // key name
 			exchange, // exchange name
 			false,    // no-wait?
 			nil,      // arguments
 		)
+		if err != nil {
+			return nil, &TransportError{"amqp", err}
+		}
+	}
+
+	if writerEnabled {
+		outputConn, outputChannel, err = amqpInit(c)
 		if err != nil {
 			return nil, &TransportError{"amqp", err}
 		}
@@ -115,6 +116,7 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 		ExitFlag:        exitFlag,
 		Wg:              &sync.WaitGroup{},
 		Logger:          logger,
+		Stats:           NewAMQPTransportStats(),
 	}, nil
 }
 
@@ -251,21 +253,59 @@ func (t *AMQPTransport) Start() {
 func (t *AMQPTransport) Stop() {
 	t.Wg.Wait()
 	if t.ListenerEnabled {
-		close(t.Input)
+		// close(t.Input)
 		t.InputChannel.Close()
 		t.InputConn.Close()
 	}
 	if t.WriterEnabled {
-		close(t.Output)
+		// close(t.Output)
 		t.OutputChannel.Close()
 		t.OutputConn.Close()
 	}
 }
 
-func (t *AMQPTransport) ListenerChan() chan<- *Metric {
+func (t *AMQPTransport) StopOutput() {
+
+}
+
+func (t *AMQPTransport) StopInput() {
+
+}
+
+func (t *AMQPTransport) LogReport() {
+
+}
+
+func (t *AMQPTransport) InputChan() chan<- *Metric {
 	return t.Input
 }
 
-func (t *AMQPTransport) WriterChan() <-chan *Metric {
+func (t *AMQPTransport) OutputChan() <-chan *Metric {
 	return t.Output
 }
+
+func (t *AMQPTransport) InputChanLen() int {
+	return len(t.Input)
+}
+
+func (t *AMQPTransport) OutputChanLen() int {
+	return len(t.Output)
+}
+
+type AMQPTransportStats struct {
+	MessagesInQueue     *StatsGauge
+	InputChannelLength  *StatsGauge
+	OutputChannelLength *StatsGauge
+}
+
+func NewAMQPTransportStats() *AMQPTransportStats {
+	return &AMQPTransportStats{
+		MessagesInQueue:     NewStatsGauge(),
+		InputChannelLength:  NewStatsGauge(),
+		OutputChannelLength: NewStatsGauge(),
+	}
+}
+
+func (s *AMQPTransportStats) Reset() {}
+
+func (s *AMQPTransportStats) Report() {}
