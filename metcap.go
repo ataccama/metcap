@@ -43,6 +43,8 @@ func main() {
 		p = profile.Start(profile.NoShutdownHook, profile.MemProfile)
 	case "blk":
 		p = profile.Start(profile.NoShutdownHook, profile.BlockProfile)
+	case "trace":
+		p = profile.Start(profile.NoShutdownHook, profile.TraceProfile)
 	default:
 	}
 
