@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,62 +23,55 @@ func NewInfluxCodec() (InfluxCodec, error) {
 	}, nil
 }
 
-func (c InfluxCodec) Decode(input io.Reader) ([]Metric, time.Duration, []error) {
-	t0 := time.Now()
-
-	var (
-		metrics []Metric
-		errs    []error
-	)
-
+func (c InfluxCodec) Decode(input io.Reader) (<-chan *Metric, <-chan error) {
 	scn := bufio.NewScanner(input)
+	wg := &sync.WaitGroup{}
+	metrics := make(chan *Metric)
+	errs := make(chan error)
 
 	for scn.Scan() {
-		line := scn.Text()
-
-		// skip empty line
-		if regexp.MustCompile(`^$`).Match([]byte(line)) {
-			continue
-		}
-
-		if c.lineRegex.Match([]byte(line)) {
+		go func(line string) {
+			defer wg.Done()
+			wg.Add(1)
+			if regexp.MustCompile(`^$`).Match([]byte(line)) {
+				return
+			}
+			if !c.lineRegex.Match([]byte(line)) {
+				return
+			}
 			// read name, fields, value and optional timestamp into hash map `dissected`
 			match := c.lineRegex.FindStringSubmatch(line)
 			dissected := map[string]string{}
 			for i, n := range c.lineRegex.SubexpNames() {
 				dissected[n] = match[i]
 			}
-
 			mTimestamp := c.readTimestamp(dissected)
-
 			mValue, err := c.readValue(dissected)
 			if err != nil {
-				errs = append(errs, &CodecError{"Failed to read value", err, dissected})
-				continue
+				errs <- &CodecError{"Failed to read value", err, dissected}
+				return
 			}
-
 			mName, err := c.readName(dissected)
 			if err != nil {
-				errs = append(errs, &CodecError{"Failed to read name", err, dissected})
-				continue
+				errs <- &CodecError{"Failed to read name", err, dissected}
+				return
 			}
-
 			mFields, err := c.readFields(dissected)
 			if err != nil {
-				errs = append(errs, &CodecError{"Failed to read fields", err, dissected})
-				continue
+				errs <- &CodecError{"Failed to read fields", err, dissected}
+				return
 			}
-
-			metrics = append(metrics, Metric{
-				Name:      mName,
-				Timestamp: mTimestamp,
-				Value:     mValue,
-				Fields:    mFields,
-			})
-		}
+			metrics <- &Metric{Name: mName, Timestamp: mTimestamp, Value: mValue, Fields: mFields}
+		}(scn.Text())
 	}
 
-	return metrics, time.Since(t0), errs
+	go func() {
+		wg.Wait()
+		close(metrics)
+		close(errs)
+	}()
+
+	return metrics, errs
 }
 
 func (c InfluxCodec) readTimestamp(d map[string]string) time.Time {

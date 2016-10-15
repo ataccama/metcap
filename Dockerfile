@@ -1,5 +1,5 @@
 FROM blufor/lightimage
-RUN mkdir -p /etc/metrics-capacitor
+RUN mkdir -p /etc/metcap
 ENV REDIS_HOST redis
 ENV REDIS_PORT 6379
 ENV REDIS_DB 0
@@ -10,7 +10,7 @@ ENV ES_TYPE raw
 ENV WRITER_CONCURRENCY 2
 ENV INFLUX_PORT 8001
 ENV GRAPHITE_PORT 8002
-COPY bin/metrics-capacitor /bin/metrics-capacitor
-COPY bin/metrics-capacitor-docker /bin/metrics-capacitor-docker
-VOLUME /etc/metrics-capacitor
-CMD [ "/bin/metrics-capacitor-docker" ]
+COPY bin/metcap /bin/metcap
+COPY bin/metcap-docker /bin/metcap-docker
+VOLUME /etc/metcap
+CMD [ "/bin/metcap-docker" ]

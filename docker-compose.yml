@@ -19,4 +19,4 @@ services:
       - "8001:8001"
       - "8002:8002"
     volumes:
-      - "./etc:/etc/metrics-capacitor"
+      - "./etc:/etc/metcap"

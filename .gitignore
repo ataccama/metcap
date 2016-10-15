@@ -2,12 +2,11 @@
 *.a
 *.so
 pkg
-bin/metrics-capacitor
+bin/metcap
 .image*
-!src/metrics-capacitor.go
 src/*
 !src/github.com
 src/github.com/*
-!src/github.com/metrics-capacitor
-src/github.com/metrics-capacitor/*
-!src/github.com/metrics-capacitor/metrics-capacitor
+!src/github.com/blufor
+src/github.com/blufor/*
+!src/github.com/blufor/metcap

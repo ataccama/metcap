@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -46,56 +47,51 @@ func NewGraphiteCodec(mutFile string) (GraphiteCodec, error) {
 	}, nil
 }
 
-func (c GraphiteCodec) Decode(input io.Reader) ([]Metric, time.Duration, []error) {
-	t0 := time.Now()
-
-	var (
-		metrics []Metric
-		errs    []error
-	)
-
+func (c GraphiteCodec) Decode(input io.Reader) (<-chan *Metric, <-chan error) {
 	scn := bufio.NewScanner(input)
+	wg := &sync.WaitGroup{}
+	metrics := make(chan *Metric)
+	errs := make(chan error)
 
 	for scn.Scan() {
-		line := scn.Text()
-
-		// skip empty line
-		if regexp.MustCompile(`^$`).Match([]byte(line)) {
-			continue
-		}
-
-		if c.lineRegex.Match([]byte(line)) {
+		wg.Add(1)
+		go func(line string) {
+			defer wg.Done()
+			// skip empty line
+			if regexp.MustCompile(`^$`).Match([]byte(line)) {
+				return
+			}
+			if !c.lineRegex.Match([]byte(line)) {
+				return
+			}
 			// read path, value and optional timestamp into hash map `dissected`
 			match := c.lineRegex.FindStringSubmatch(line)
 			dissected := map[string]string{}
 			for i, n := range c.lineRegex.SubexpNames() {
 				dissected[n] = match[i]
 			}
-
 			mTimestamp := c.readTimestamp(dissected)
-
 			mValue, err := c.readValue(dissected)
 			if err != nil {
-				errs = append(errs, &CodecError{"Failed to read value", err, dissected["value"]})
-				continue
+				errs <- &CodecError{"Failed to read value", err, dissected["value"]}
+				return
 			}
-
 			mName, mFields, err := c.readFields(dissected)
 			if err != nil {
-				errs = append(errs, &CodecError{"Failed to read name/fields", err, dissected["path"]})
-				continue
+				errs <- &CodecError{"Failed to read name/fields", err, dissected["path"]}
+				return
 			}
-
-			metrics = append(metrics, Metric{
-				Name:      mName,
-				Timestamp: mTimestamp,
-				Value:     mValue,
-				Fields:    mFields,
-			})
-		}
+			metrics <- &Metric{Name: mName, Timestamp: mTimestamp, Value: mValue, Fields: mFields}
+		}(scn.Text())
 	}
 
-	return metrics, time.Since(t0), errs
+	go func() {
+		wg.Wait()
+		close(metrics)
+		close(errs)
+	}()
+
+	return metrics, errs
 }
 
 // helper function to parse timestamp into time.Time

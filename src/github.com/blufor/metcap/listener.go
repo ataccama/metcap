@@ -24,7 +24,14 @@ type Listener struct {
 	ExitFlag  *Flag
 }
 
-func NewListener(name string, c ListenerConfig, t Transport, moduleWg *sync.WaitGroup, logger *Logger, exitFlag *Flag) (Listener, error) {
+func NewListener(
+	name string,
+	c ListenerConfig,
+	t Transport,
+	moduleWg *sync.WaitGroup,
+	logger *Logger,
+	exitFlag *Flag,
+) (Listener, error) {
 	logger.Infof("[listener:%s] Starting [%s://0.0.0.0:%d/%s]", name, c.Protocol, c.Port, c.Codec)
 
 	sock, err := net.Listen("tcp", ":"+strconv.Itoa(c.Port))
@@ -82,7 +89,7 @@ func (l *Listener) Start() {
 			conn, err := l.Socket.Accept()
 			if err != nil {
 				l.Logger.Errorf("[listener:%s] Can't accept connection: %v", l.Name, err)
-				break
+				return
 			}
 			l.ConnWg.Add(1)
 			l.Stats.ConnOpen.Increment(1)
@@ -98,7 +105,7 @@ func (l *Listener) Start() {
 				l.Logger.Debugf("[listener:%s] Closing LISTEN socket", l.Name)
 				l.Socket.Close()
 				l.Logger.Infof("[listener:%s] LISTEN socket closed", l.Name)
-				l.Logger.Debugf("[listener:%s] Waiting for connections to close", l.Name)
+				l.Logger.Infof("[listener:%s] Waiting for connections to close", l.Name)
 				l.ConnWg.Wait()
 				l.Logger.Infof("[listener:%s] All connections closed", l.Name)
 				time.Sleep(10 * time.Millisecond)
@@ -113,9 +120,7 @@ func (l *Listener) Start() {
 				exitFinished <- struct{}{}
 				return
 			case conn := <-connPipe:
-				t0 := time.Now()
-				l.DataWg.Add(1)
-				go l.read(*conn, &dataPipe, t0)
+				go l.read(*conn, &dataPipe, time.Now())
 			}
 		}
 	}()
@@ -209,26 +214,27 @@ func (l *Listener) read(conn net.Conn, pipe *chan *bytes.Buffer, tStart time.Tim
 	}
 	l.Logger.Debugf("[listener:%s] Handled connection from %s, %d bytes, took %v", l.Name, conn.RemoteAddr().String(), oBuf.Len(), dur)
 	l.Stats.ConnTime.Add(dur)
+	l.DataWg.Add(1)
 	*pipe <- &oBuf
 
 }
 
 func (l *Listener) decode(data *bytes.Buffer) {
+	t0 := time.Now()
 	defer l.Stats.CodecProcessed.Increment(1)
 	defer l.Stats.CodecProcessing.Decrement(1)
 	defer l.DataWg.Done()
 	l.Stats.CodecProcessing.Increment(1)
-	metrics, took, errs := l.Codec.Decode(bytes.NewReader(data.Bytes()))
+	metrics, errs := l.Codec.Decode(bytes.NewReader(data.Bytes()))
+	for metric := range metrics {
+		l.Transport.InputChan() <- metric
+		l.Stats.CodecDecodedMetrics.Increment(1)
+	}
 	if len(errs) > 0 {
 		l.Logger.Errorf("[listener:%s] Failed to decode %d metrics!", l.Name, len(errs))
 		// log the metric raw data?
 	}
-	l.Stats.CodecDecodedMetrics.Increment(len(metrics))
-	l.Stats.CodecTime.Add(took)
-	l.Logger.Debugf("[listener:%s] Decoded %d metrics, took %v", l.Name, len(metrics), took)
-	for _, metric := range metrics {
-		l.Transport.InputChan() <- &metric
-	}
+	l.Stats.CodecTime.Add(time.Since(t0))
 }
 
 type ListenerStats struct {

@@ -3,6 +3,7 @@
 > Metrics processing engine with ElasticSearch as a backend, like Logstash is for logs :)
 
 Development has been supported by:
+- [SkyPicker/Kiwi.com](http://www.kiwi.com/)
 - [EtNetera Group](http://www.etneteragroup.com/)
 - [NeuronAD LTD](http://www.neuronad.com/)
 
@@ -45,8 +46,8 @@ Development has been supported by:
 ## Installation
 
 1. Make sure you have Redis and ElasticSearch up and accessible
-2. Download the latest [release](https://github.com/metrics-capacitor/metrics-capacitor/releases/latest) into ```/usr/local/bin```:
-  ```wget -O- -q https://api.github.com/repos/metrics-capacitor/metrics-capacitor/releases/latest | jq -r ".assets[] | select(.name) | .browser_download_url" | xargs sudo wget -O/usr/local/bin/metrics-capacitor && sudo chmod a+x /usr/local/bin/metrics-capacitor```
+2. Download the latest [release](https://github.com/metcap/metcap/releases/latest) into ```/usr/local/bin```:
+  ```wget -O- -q https://api.github.com/repos/metcap/metcap/releases/latest | jq -r ".assets[] | select(.name) | .browser_download_url" | xargs sudo wget -O/usr/local/bin/metcap && sudo chmod a+x /usr/local/bin/metcap```
 
 
 ## Configuration
@@ -55,15 +56,15 @@ See contents of ```etc/``` directory for details.
 
 ## Usage
 
-Just start the Engine by invoking ```metrics-capacitor```
+Just start the Engine by invoking ```metcap```
 
 ### Options
 
 ```
-# metrics-capacitor -help
-Usage of metrics-capacitor:
+# metcap -help
+Usage of metcap:
   -config string
-    	Path to config file (default "/etc/metrics-capacitor/main.conf")
+    	Path to config file (default "/etc/metcap/main.conf")
   -cores int
     	Number of cores to use (default all cores)
   -daemonize

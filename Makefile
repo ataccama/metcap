@@ -1,7 +1,7 @@
-NAME=metrics-capacitor
+NAME=metcap
 IMG_DEV=mc-dev
 IMG_PROD=blufor/$(NAME)
-LIB_PATH=github.com/metrics-capacitor/metrics-capacitor
+LIB_PATH=github.com/blufor/metcap
 VERSION=$(shell cat VERSION)
 PATH=$(shell pwd -P)
 BUILD=$(shell git rev-parse --short HEAD)
@@ -11,8 +11,8 @@ ECHO=$(shell which echo)
 RM=$(shell which rm)
 TOUCH=$(shell which touch)
 LDFLAGS=--ldflags "-X main.Version=$(VERSION) -X main.Build=$(BUILD)"
-D_RUN=run --rm -h $(IMG_DEV) --name $(IMG_DEV) --net host -v "$(PATH)/metrics-capacitor.go:/go/metrics-capacitor.go" -v "$(PATH)/bin:/go/bin" -v "$(PATH)/src:/go/src" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/metrics-capacitor"
-# D_RUN=run --rm -h $(IMG_DEV) --name $(IMG_DEV) -v "$(PATH)/metrics-capacitor.go:/go/metrics-capacitor.go" -v "$(PATH)/bin:/go/bin" -v "$(PATH)/src:/go/src" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/metrics-capacitor"
+D_RUN=run --rm -h $(IMG_DEV) --name $(IMG_DEV) --net host -v "$(PATH)/$(NAME).go:/go/$(NAME).go" -v "$(PATH)/bin:/go/bin" -v "$(PATH)/src:/go/src" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/$(NAME)"
+# D_RUN=run --rm -h $(IMG_DEV) --name $(IMG_DEV) -v "$(PATH)/$(NAME).go:/go/$(NAME).go" -v "$(PATH)/bin:/go/bin" -v "$(PATH)/src:/go/src" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/$(NAME)"
 
 
 .DEFAULT_GOAL := binary
@@ -63,7 +63,7 @@ pkg/linux_amd64/$(LIB_PATH).a: pkg $(sources)
 
 .PHONY: test
 test: bin/$(NAME)
-	-$(DOCKER) $(D_RUN) -it $(IMG_DEV) /go/bin/metrics-capacitor
+	-$(DOCKER) $(D_RUN) -it $(IMG_DEV) /go/bin/$(NAME)
 
 .PHONY: push
 push:
