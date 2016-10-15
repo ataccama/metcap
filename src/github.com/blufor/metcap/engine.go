@@ -10,15 +10,13 @@ import (
 
 type Engine struct {
 	Config     Config
-	Daemon     *bool
 	Workers    *sync.WaitGroup
 	SignalChan chan os.Signal
 }
 
-func NewEngine(configfile string, daemon bool) Engine {
+func NewEngine(configfile string) Engine {
 	return Engine{
 		Config:     ReadConfig(&configfile),
-		Daemon:     &daemon,
 		Workers:    &sync.WaitGroup{},
 		SignalChan: make(chan os.Signal, 1),
 	}

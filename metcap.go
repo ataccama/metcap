@@ -17,7 +17,6 @@ func main() {
 
 	// cmdline options
 	cfg := flag.String("config", "/etc/metcap/main.conf", "Path to config file")
-	daemon := flag.Bool("daemonize", false, "Run on background")
 	cores := flag.Int("cores", runtime.NumCPU(), "Number of cores to use")
 	version := flag.Bool("version", false, "Show version")
 	flag.Parse()
@@ -26,7 +25,7 @@ func main() {
 		fmt.Println("MetCap version " + Version + " (build " + Build + ")")
 	} else {
 		runtime.GOMAXPROCS(*cores)
-		mc := metcap.NewEngine(*cfg, *daemon)
+		mc := metcap.NewEngine(*cfg)
 		mc.Run()
 	}
 }
