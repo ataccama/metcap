@@ -11,13 +11,15 @@ import (
 type Engine struct {
 	Config     Config
 	Workers    *sync.WaitGroup
+	ExitCode   chan int
 	SignalChan chan os.Signal
 }
 
-func NewEngine(configfile string) Engine {
+func NewEngine(configfile string, exitChan chan int) Engine {
 	return Engine{
 		Config:     ReadConfig(&configfile),
 		Workers:    &sync.WaitGroup{},
+		ExitCode:   exitChan,
 		SignalChan: make(chan os.Signal, 1),
 	}
 }
@@ -57,7 +59,8 @@ func (e *Engine) Run() {
 	case "channel":
 		if listenerEnabled == false || writerEnabled == false {
 			logger.Alert("[engine] Channel transport requires you to have both listener and writer enabled!")
-			os.Exit(1)
+			e.ExitCode <- 1
+			return
 		}
 		transport = NewChannelTransport(&e.Config.Transport, logger)
 	case "redis":
@@ -66,11 +69,13 @@ func (e *Engine) Run() {
 		transport, err = NewAMQPTransport(&e.Config.Transport, listenerEnabled, writerEnabled, exitFlag, logger)
 	default:
 		logger.Alertf("[engine] Transport '%s' not implemented", e.Config.Transport.Type)
-		os.Exit(1)
+		e.ExitCode <- 1
+		return
 	}
 	if err != nil {
 		logger.Alertf("[engine] Failed to set-up transport: %v", err)
-		os.Exit(1)
+		e.ExitCode <- 1
+		return
 	}
 
 	// initialize & start writer
@@ -78,7 +83,8 @@ func (e *Engine) Run() {
 		writer, err := NewWriter(&e.Config.Writer, transport, e.Workers, logger, exitFlag)
 		if err != nil {
 			logger.Alert("[engine] Failed to initialize writer. Exiting")
-			os.Exit(1)
+			e.ExitCode <- 1
+			return
 		}
 		writers = append(writers, &writer)
 		go writer.Start()
@@ -168,7 +174,8 @@ func (e *Engine) Run() {
 
 			logger.Info("[engine] Exiting...")
 			time.Sleep(100 * time.Millisecond)
-			os.Exit(0)
+			e.ExitCode <- 0
+			return
 
 		case sig == syscall.SIGUSR1:
 			if debugFlag.Get() {
