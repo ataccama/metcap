@@ -4,5 +4,14 @@ RUN mkdir -p /tmp /var/tmp
 ENV GOPATH "/go/:/usr/lib/go"
 ENV GOBIN "/usr/local/bin"
 ENV PWD "/go"
-VOLUME /go/src /go/bin /go/pkg
+RUN mkdir -p /go/src/github.com/blufor/metcap
+RUN cd /go && go get -v \
+  github.com/BurntSushi/toml \
+  github.com/RackSec/srslog \
+  github.com/streadway/amqp \
+  github.com/pkg/profile \
+  gopkg.in/olivere/elastic.v3 \
+  gopkg.in/redis.v4 \
+  gopkg.in/vmihailenco/msgpack.v2
+VOLUME /go/src/github.com/blufor/metcap /usr/local/bin /go/pkg
 CMD [ "/bin/bash", "-li" ]

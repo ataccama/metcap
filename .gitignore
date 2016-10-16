@@ -4,9 +4,3 @@
 pkg
 bin/metcap
 .image*
-src/*
-!src/github.com
-src/github.com/*
-!src/github.com/blufor
-src/github.com/blufor/*
-!src/github.com/blufor/metcap
