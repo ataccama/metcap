@@ -2,24 +2,21 @@
 
 > Metrics processing engine with ElasticSearch as a backend, like Logstash is for logs :)
 
-> *Formerly metrics-capacitor*
-
-[Check the project wiki for docs](https://github.com/blufor/metcap/wiki)
-
-# Features
-
+Features:
 - Written in Golang... for speed ;)
-- Graphite + InfluxDB line listeners (TCP)
 - Modular design
-  - Transport (Go Channel/Redis/AMQP)
-  - Listeners (Graphite, InfluxDB)
-  - Writer
+  - transport (Go Channel/Redis/AMQP/NATS)
+  - listener codecs (Graphite, InfluxDB)
+  - ElasticSearch writer
 - Connection pooling
 - Scalability
-  - Multiple-core use
-  - Multiple hosts can be HAProxied ;)
-  - Data layer scalability is provided natively by ElasticSearch
+  - full multicore support
+  - easy load-balancing
+  - simple data layer scalability
+
+**Check the [project wiki](https://github.com/blufor/metcap/wiki) for docs!**
+
 
 ----------------------------------------------------------------------
 
-Development has been supported by: [Kiwi.com](http://www.kiwi.com/), [Etnetera Group](http://www.etneteragroup.com/), [NeuronAD](http://www.neuronad.com/)
+Development has been supported by: [Kiwi.com](http://www.kiwi.com/), [Etnetera Group](http://www.etneteragroup.com/), [NeuronAD](http://www.neuronad.com/), blufor's family
