@@ -9,6 +9,10 @@ DOCKER=$(shell which docker)
 DOCKER_COMPOSE=$(shell which docker-compose)
 ECHO=$(shell which echo)
 RM=$(shell which rm)
+FIND=$(shell which find)
+XARGS=$(shell which xargs)
+WC=$(shell which wc)
+SORT=$(shell which sort)
 TOUCH=$(shell which touch)
 SUDO=$(shell which sudo)
 LDFLAGS=--ldflags "-X main.Version=$(VERSION) -X main.Build=$(BUILD)"
@@ -54,10 +58,13 @@ bin/$(NAME): .image.dev pkg/linux_amd64/$(LIB_PATH).a $(NAME).go VERSION
 
 pkg/linux_amd64/$(LIB_PATH).a: $(shell find src -name '*.go')
 	@$(ECHO) == FORMATTING
-	$(DOCKER) $(D_RUN) $(IMG_DEV) time go fmt $(LIB_PATH)
+	$(DOCKER) $(D_RUN) $(IMG_DEV) go fmt $(LIB_PATH)
+	@$(ECHO)
+	@$(ECHO) == Line report
+	@$(FIND) src/ -name '*go' | $(XARGS) $(WC) -l | $(SORT) -n
 	@$(ECHO)
 	@$(ECHO) == VETTING
-	$(DOCKER) $(D_RUN) $(IMG_DEV) time go vet $(LIB_PATH)
+	$(DOCKER) $(D_RUN) $(IMG_DEV) go vet $(LIB_PATH)
 	@$(ECHO)
 	@$(ECHO) == BUILDING LIBRARY
 	$(DOCKER) $(D_RUN) $(IMG_DEV) time go install -v -a $(LIB_PATH)
