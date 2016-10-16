@@ -1,6 +1,8 @@
-# Metrics Capacitor
+# MetCap
 
 > Metrics processing engine with ElasticSearch as a backend, like Logstash is for logs :)
+
+> *Formerly metrics-capacitor*
 
 Development has been supported by:
 - [SkyPicker/Kiwi.com](http://www.kiwi.com/)
