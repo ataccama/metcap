@@ -153,6 +153,9 @@ func (c GraphiteCodec) readFields(d map[string]string) (string, map[string]strin
 	name := []string{}
 	fields := make(map[string]string)
 	_mutRuleMatch := false
+	stringMatcher := "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM"
+	numMatcher := "0123456789"
+	// charMatcher := "_"
 
 	// check if we have graphite path
 	if _, ok := d["path"]; ok {
@@ -168,24 +171,27 @@ func (c GraphiteCodec) readFields(d map[string]string) (string, map[string]strin
 			FIELD_PARSER:
 				for i, field := range fieldValues {
 					switch {
-					case regexp.MustCompile(`^[0-9]+$`).Match([]byte(fieldNames[i])):
-						// numeric rule -> name
-						name = append(name, field)
-					case regexp.MustCompile(`^[a-zA-Z0-9_]+\+$`).Match([]byte(fieldNames[i])):
-						// string rule with catch-all flag -> catch-all field
-						f := strings.TrimRight(fieldNames[i], "+")
-						fields[f] = strings.Join(fieldValues[i:], ":")
-						break FIELD_PARSER
-					case regexp.MustCompile(`^[a-zA-Z0-9_]+$`).Match([]byte(fieldNames[i])):
-						// string rule -> field
-						fields[fieldNames[i]] = field
-					case regexp.MustCompile(`^\+$`).Match([]byte(fieldNames[i])):
+					case fieldNames[i] == "+":
 						// catch-all flag -> fill name
-						name = append(name, strings.Join(fieldValues[i:], ":"))
+						name = append(name, fieldValues[i:]...)
 						break FIELD_PARSER
-					case regexp.MustCompile(`^-$`).Match([]byte(fieldNames[i])):
+					case fieldNames[i] == "_":
 						// no-catch flag -> skip
 						continue FIELD_PARSER
+					case !strings.ContainsAny(fieldNames[i], stringMatcher) && strings.ContainsAny(fieldNames[i], numMatcher) && strings.HasSuffix(fieldNames[i], "+"):
+						name = append(name, fieldValues[i:]...)
+						break FIELD_PARSER
+					case !strings.ContainsAny(fieldNames[i], stringMatcher) && strings.ContainsAny(fieldNames[i], numMatcher):
+						// numeric rule -> name
+						name = append(name, field)
+					case strings.ContainsAny(fieldNames[i], stringMatcher+numMatcher) && strings.HasSuffix(fieldNames[i], "+"):
+						// string rule with catch-all flag -> catch-all field
+						f := strings.TrimRight(fieldNames[i], "+")
+						fields[f] = strings.Join(fieldValues[i:], "_")
+						break FIELD_PARSER
+					case strings.ContainsAny(fieldNames[i], stringMatcher+numMatcher):
+						// string rule -> field
+						fields[fieldNames[i]] = field
 					}
 				}
 				break
@@ -193,7 +199,7 @@ func (c GraphiteCodec) readFields(d map[string]string) (string, map[string]strin
 		}
 
 		if !_mutRuleMatch {
-			name = append(name, strings.Join(strings.Split(d["path"], "."), ":"))
+			name = append(name, strings.Join(strings.Split(d["path"], "."), "_"))
 		}
 		// not Graphite? then it must be only Influx (for now :))
 	} else {

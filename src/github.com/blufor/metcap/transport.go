@@ -1,5 +1,7 @@
 package metcap
 
+import "fmt"
+
 type Transport interface {
 	Start()
 	Stop()
@@ -10,4 +12,13 @@ type Transport interface {
 	InputChanLen() int
 	OutputChan() <-chan *Metric
 	OutputChanLen() int
+}
+
+type TransportError struct {
+	provider string
+	err      error
+}
+
+func (e *TransportError) Error() string {
+	return fmt.Sprintf("[%s] Error: %v", e.provider, e.err)
 }

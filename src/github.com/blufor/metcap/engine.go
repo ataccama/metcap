@@ -136,8 +136,6 @@ func (e *Engine) Run() {
 			}
 		}()
 
-		// time.Sleep(5 * time.Second)
-
 		// report select-loop
 		for {
 			select {
@@ -193,19 +191,4 @@ func (e *Engine) Run() {
 			logger.Errorf("[engine] Unknown signal: %v", sig)
 		}
 	}
-}
-
-func (e *Engine) logReport() {
-
-}
-
-type EngineStats struct {
-}
-
-func NewEngineStats() *EngineStats {
-	return &EngineStats{}
-}
-
-func (s *EngineStats) Reset() {
-
 }
