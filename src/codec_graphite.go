@@ -153,9 +153,9 @@ func (c GraphiteCodec) readFields(d map[string]string) (string, map[string]strin
 	name := []string{}
 	fields := make(map[string]string)
 	_mutRuleMatch := false
-	stringMatcher := "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM"
-	numMatcher := "0123456789"
-	// charMatcher := "_"
+	const stringMatcher string = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM"
+	const numMatcher string = "0123456789"
+	// const charMatcher string = "_"
 
 	// check if we have graphite path
 	if _, ok := d["path"]; ok {
