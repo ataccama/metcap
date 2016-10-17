@@ -8,6 +8,7 @@ BUILD=$(shell git rev-parse --short HEAD)
 DOCKER=$(shell which docker)
 DOCKER_COMPOSE=$(shell which docker-compose)
 ECHO=$(shell which echo)
+GIT=$(shell which git)
 RM=$(shell which rm)
 FIND=$(shell which find)
 XARGS=$(shell which xargs)
@@ -42,7 +43,7 @@ build: lib binary
 	@$(TOUCH) $@
 	@$(ECHO)
 
-.image: bin/$(NAME) bin/$(NAME)-docker Dockerfile
+.image: bin/$(NAME) bin/$(NAME)-docker Dockerfile check
 	@$(ECHO) == BUILDING DOCKER PROD IMAGE
 	$(DOCKER) build -t $(IMG_PROD):$(VERSION) .
 	$(DOCKER) tag $(IMG_PROD):$(VERSION) $(IMG_PROD):latest
@@ -70,10 +71,15 @@ pkg/linux_amd64/$(LIB_PATH).a: $(shell find src -name '*.go')
 	$(DOCKER) $(D_RUN) $(IMG_DEV) time go install -v -a $(LIB_PATH)
 	@$(ECHO)
 
-.PHONY: test
-test: bin/$(NAME)
+.PHONY: run
+run: bin/$(NAME)
 	-$(DOCKER) $(D_RUN) -it $(IMG_DEV) $(NAME)
 	@$(ECHO)
+
+.PHONY: check
+check: bin/$(NAME)
+	@$(ECHO) == CHECKING STATUS
+	@$(GIT) diff --quiet || $(GIT) status && false
 
 .PHONY: svc_start svc_stop svc_rm
 svc_start:
