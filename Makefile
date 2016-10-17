@@ -79,7 +79,7 @@ run: bin/$(NAME)
 .PHONY: check
 check: bin/$(NAME)
 	@$(ECHO) == CHECKING STATUS
-	@$(GIT) diff --quiet || $(GIT) status && false
+	@$(GIT) diff --quiet || ( $(GIT) status && false )
 
 .PHONY: svc_start svc_stop svc_rm
 svc_start:
