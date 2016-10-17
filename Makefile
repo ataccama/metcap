@@ -98,9 +98,9 @@ svc_rm: svc_stop
 
 .PHONY: push
 push: check .image
-	@$(ECHO) == PUSHING SOURCE VERSION $(VERSION) ($(BUILD))
+	@$(ECHO) == PUSHING SOURCE VERSION $(VERSION) \($(BUILD)\)
 	$(GIT) push
-	@$(ECHO) == PUSHING IMAGE VERSION $(VERSION) ($(BUILD))
+	@$(ECHO) == PUSHING IMAGE VERSION $(VERSION) \($(BUILD)\)
 	$(DOCKER) push $(IMG_PROD):$(VERSION)
 	@$(ECHO)
 	@$(ECHO) == PUSHING IMAGE LATEST
