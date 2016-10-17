@@ -97,11 +97,13 @@ svc_rm: svc_stop
 	@$(ECHO)
 
 .PHONY: push
-push:
-	@$(ECHO) == PUSHING VERSION
+push: check .image
+	@$(ECHO) == PUSHING SOURCE VERSION $(VERSION) ($(BUILD))
+	$(GIT) push
+	@$(ECHO) == PUSHING IMAGE VERSION $(VERSION) ($(BUILD))
 	$(DOCKER) push $(IMG_PROD):$(VERSION)
 	@$(ECHO)
-	@$(ECHO) == LATEST LATEST
+	@$(ECHO) == PUSHING IMAGE LATEST
 	$(DOCKER) push $(IMG_PROD):latest
 	@$(ECHO)
 
