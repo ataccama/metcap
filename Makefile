@@ -2,6 +2,9 @@ NAME=metcap
 IMG_DEV=mc-dev
 IMG_PROD=blufor/$(NAME)
 LIB_PATH=github.com/blufor/metcap
+DOCKERFILE=Dockerfile
+DOCKERFILE_DEV=Dockerfile.dev
+
 VERSION=$(shell cat VERSION)
 PATH=$(shell pwd -P)
 BUILD=$(shell git rev-parse --short HEAD)
@@ -16,59 +19,51 @@ WC=$(shell which wc)
 SORT=$(shell which sort)
 TOUCH=$(shell which touch)
 SUDO=$(shell which sudo)
-LDFLAGS=--ldflags "-X main.Version=$(VERSION) -X main.Build=$(BUILD)"
-D_RUN=run --rm -h $(IMG_DEV) --name $(IMG_DEV) --net host -v "$(PATH)/$(NAME).go:/go/$(NAME).go" -v "$(PATH)/bin:/usr/local/bin" -v "$(PATH)/src:/go/src/$(LIB_PATH)" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/$(NAME)"
-# D_RUN=run --rm -h $(IMG_DEV) --name $(IMG_DEV) -v "$(PATH)/$(NAME).go:/go/$(NAME).go" -v "$(PATH)/bin:/go/bin" -v "$(PATH)/src:/go/src" -v "$(PATH)/pkg:/go/pkg" -v "$(PATH)/etc:/etc/$(NAME)"
 
+LDFLAGS=--ldflags "-X main.Version=$(VERSION) -X main.Build=$(BUILD)"
+D_RUN=run --rm -h $(IMG_DEV) \
+--name $(IMG_DEV) \
+--net host \
+-v "$(PATH)/bin:/usr/local/bin" \
+-v "$(PATH)/src:/go/src/$(LIB_PATH)" \
+-v "$(PATH)/etc:/etc/$(NAME)" \
+-v "$(PATH)/tmp:/tmp"
 
 .DEFAULT_GOAL := default
 .PHONY: default
-default: binary .image
-
-.PHONY: prepare
-prepare: .image.dev pkg
-
-.PHONY: lib
-lib: pkg/linux_amd64/$(LIB_PATH).a
-
-.PHONY: binary
-binary:	bin/$(NAME)
+default: build image
 
 .PHONY: build
-build: lib binary
+build:	bin/$(NAME)
 
-.image.dev: Dockerfile.dev
-	@$(ECHO) == BUILDING DOCKER DEV IMAGE
-	$(DOCKER) build -t $(IMG_DEV) - < Dockerfile.dev
+.PHONY: prepare
+prepare: .image.dev
+.image.dev: $(DOCKERFILE_DEV)
+	### BUILDING DOCKER DEV IMAGE
+	$(DOCKER) build -t $(IMG_DEV) - < $(DOCKERFILE_DEV)
 	@$(TOUCH) $@
 	@$(ECHO)
 
-.image: bin/$(NAME) bin/$(NAME)-docker Dockerfile check
-	@$(ECHO) == BUILDING DOCKER PROD IMAGE
+.PHONY: image
+image: .image
+.image: bin/$(NAME) bin/$(NAME)-docker $(DOCKERFILE)
+	### BUILDING DOCKER PROD IMAGE
 	$(DOCKER) build -t $(IMG_PROD):$(VERSION) .
 	$(DOCKER) tag $(IMG_PROD):$(VERSION) $(IMG_PROD):latest
 	@$(TOUCH) $@
 	@$(ECHO)
 
-bin/$(NAME): .image.dev pkg/linux_amd64/$(LIB_PATH).a $(NAME).go VERSION
-	@$(ECHO) -e "BUILDING BINARY"
-	@$(ECHO) -e "Version:\t$(VERSION)"
-	@$(ECHO) -e "Build:\t\t$(BUILD)"
-	$(DOCKER) $(D_RUN) $(IMG_DEV) time go build -v $(LDFLAGS) -o /usr/local/$@ /go/$(NAME).go
+bin/$(NAME): .image.dev $(shell find src -name '*.go') VERSION
+	### FORMATTING
+	$(DOCKER) $(D_RUN) $(IMG_DEV) go fmt $(LIB_PATH) $(LIB_PATH)/cmd/metcap
 	@$(ECHO)
-
-pkg/linux_amd64/$(LIB_PATH).a: $(shell find src -name '*.go')
-	@$(ECHO) == FORMATTING
-	$(DOCKER) $(D_RUN) $(IMG_DEV) go fmt $(LIB_PATH)
+	### VETTING
+	$(DOCKER) $(D_RUN) $(IMG_DEV) go vet $(LIB_PATH) $(LIB_PATH)/cmd/metcap
 	@$(ECHO)
-	@$(ECHO) == Line report
-	@$(FIND) src/ -name '*go' | $(XARGS) $(WC) -l | $(SORT) -n
-	@$(ECHO)
-	@$(ECHO) == VETTING
-	$(DOCKER) $(D_RUN) $(IMG_DEV) go vet $(LIB_PATH)
-	@$(ECHO)
-	@$(ECHO) == BUILDING LIBRARY
-	$(DOCKER) $(D_RUN) $(IMG_DEV) time go install -v -a $(LIB_PATH)
+	### BUILDING BINARY
+	### Version: $(VERSION)
+	### Build:   $(BUILD)
+	$(DOCKER) $(D_RUN) $(IMG_DEV) time go build $(LDFLAGS) -o /usr/local/$@ $(LIB_PATH)/cmd/metcap
 	@$(ECHO)
 
 .PHONY: run
@@ -77,12 +72,16 @@ run: bin/$(NAME)
 	@$(ECHO)
 
 .PHONY: check
-check: bin/$(NAME)
-	@$(ECHO) == CHECKING STATUS
+check: bin/$(NAME) $(shell find src -name '*.go')
+	### CHECKING GIT STATUS
 	@$(GIT) diff --quiet || ( $(GIT) status && false )
+	@$(ECHO)
+	### LINE REPORT
+	@$(FIND) $(PATH) -name '*go' | $(XARGS) $(WC) -l | $(SORT) -n
 
 .PHONY: svc_start svc_stop svc_rm
 svc_start:
+	cd docker
 	$(DOCKER_COMPOSE) create es redis rabbitmq
 	@$(ECHO)
 	$(DOCKER_COMPOSE) start es redis rabbitmq
@@ -98,29 +97,36 @@ svc_rm: svc_stop
 
 .PHONY: push
 push: check .image
-	@$(ECHO) == PUSHING SOURCE VERSION $(VERSION) \($(BUILD)\)
+	### PUSHING SOURCE VERSION $(VERSION) \($(BUILD)\)
 	$(GIT) push
-	@$(ECHO) == PUSHING IMAGE VERSION $(VERSION) \($(BUILD)\)
+	@$(ECHO)
+	### PUSHING IMAGE VERSION $(VERSION) \($(BUILD)\)
 	$(DOCKER) push $(IMG_PROD):$(VERSION)
 	@$(ECHO)
-	@$(ECHO) == PUSHING IMAGE LATEST
+	### PUSHING IMAGE LATEST
 	$(DOCKER) push $(IMG_PROD):latest
 	@$(ECHO)
 
 .PHONY: enter
 enter: .image.dev
-	@$(ECHO) == ENTERING CONTAINER
+	### ENTERING CONTAINER
 	$(DOCKER) $(D_RUN) -it $(IMG_DEV)
 
 .PHONY: rmi
 rmi:
-	@$(ECHO) == REMOVING IMAGE
-	-$(DOCKER) rmi -f $(IMG_DEV) $(IMG_PROD)
-	-$(RM) -f .image.dev .image
+	### REMOVING BUILD IMAGE
+	-$(DOCKER) rmi -f $(IMG_PROD)
+	-$(RM) -f .image
 	@$(ECHO)
 
 .PHONY: clean
 clean: rmi
-	@$(ECHO) == CLEANING
-	$(SUDO) $(RM) -rf pkg bin/$(NAME)
+	### REMOVING BUILD BINARY
+	$(RM) -f bin/$(NAME)
 	@$(ECHO)
+
+.PHONY: mrproper
+mrproper: clean rmi
+	### REMOVING WORK IMAGE
+	-$(DOCKER) rmi -f $(IMG_PROD)
+	$(RM) -f  .image.dev

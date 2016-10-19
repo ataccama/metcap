@@ -101,17 +101,24 @@ func (l *Listener) Start() {
 	go func() {
 		for {
 			select {
+			case conn := <-connPipe:
+				go l.read(*conn, &dataPipe, time.Now())
 			case <-exitMux:
 				l.Logger.Debugf("[listener:%s] Closing LISTEN socket", l.Name)
 				l.Socket.Close()
 				l.Logger.Infof("[listener:%s] LISTEN socket closed", l.Name)
+				go func() { // drain connPipe channel
+					for conn := range connPipe {
+						go l.read(*conn, &dataPipe, time.Now())
+					}
+				}()
 				l.Logger.Infof("[listener:%s] Waiting for connections to close", l.Name)
 				l.ConnWg.Wait()
 				l.Logger.Infof("[listener:%s] All connections closed", l.Name)
 				time.Sleep(10 * time.Millisecond)
 				l.Logger.Debugf("[listener:%s] Waiting for decoders to finish", l.Name)
 				l.DataWg.Wait()
-				for _n := 0; _n < l.Config.Decoders; _n++ {
+				for _n := 0; _n < l.Config.Decoders; _n++ { // call decoders to exit
 					exitDecoders <- struct{}{}
 				}
 				close(dataPipe)
@@ -119,8 +126,6 @@ func (l *Listener) Start() {
 				l.Logger.Infof("[listener:%s] Decoders finished", l.Name)
 				exitFinished <- struct{}{}
 				return
-			case conn := <-connPipe:
-				go l.read(*conn, &dataPipe, time.Now())
 			}
 		}
 	}()

@@ -4,7 +4,6 @@ import (
 	"sync"
 )
 
-// ----- Flag ------
 type Flag struct {
 	*sync.Mutex
 	val bool

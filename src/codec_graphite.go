@@ -58,7 +58,7 @@ func (c GraphiteCodec) Decode(input io.Reader) (<-chan *Metric, <-chan error) {
 		go func(line string) {
 			defer wg.Done()
 			// skip empty line
-			if regexp.MustCompile(`^$`).Match([]byte(line)) {
+			if line == "" {
 				return
 			}
 			if !c.lineRegex.Match([]byte(line)) {

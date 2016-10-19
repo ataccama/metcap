@@ -15,13 +15,14 @@ type Engine struct {
 	SignalChan chan os.Signal
 }
 
-func NewEngine(configfile string, exitChan chan int) Engine {
+func NewEngine(cfg Config) (Engine, chan int) {
+	exitChan := make(chan int, 1)
 	return Engine{
-		Config:     ReadConfig(&configfile),
+		Config:     cfg,
 		Workers:    &sync.WaitGroup{},
 		ExitCode:   exitChan,
 		SignalChan: make(chan os.Signal, 1),
-	}
+	}, exitChan
 }
 
 func (e *Engine) Run() {

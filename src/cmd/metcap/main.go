@@ -15,28 +15,25 @@ var (
 	// Version is used to specify version number on build
 	Version string
 	// Build is used to specify commit sub-hash on build
-	Build   string
+	Build string
 )
 
 func main() {
-
-	exitCode := make(chan int, 1)
-	var p interface{ Stop() }
-
-	// cmdline options
+	var p interface {
+		Stop()
+	}
 	cfg := flag.String("config", "/etc/metcap/main.conf", "Path to config file")
 	cores := flag.Int("cores", runtime.NumCPU(), "Number of cores to use")
 	prof := flag.String("prof", "", "Run with profiling enabled, can be either one of: cpu,mem,blk,trace")
 	version := flag.Bool("version", false, "Show version")
-
 	flag.Parse()
-
 	if *version {
-		fmt.Println("MetCap version " + Version + " (build " + Build + ")")
+		fmt.Printf("MetCap version %s (build %s)\n", Version, Build)
 		return
 	}
-
+	config := metcap.ReadConfig(cfg)
 	switch *prof {
+	case "":
 	case "cpu":
 		p = profile.Start(profile.NoShutdownHook, profile.CPUProfile)
 	case "mem":
@@ -46,16 +43,15 @@ func main() {
 	case "trace":
 		p = profile.Start(profile.NoShutdownHook, profile.TraceProfile)
 	default:
+		fmt.Printf("ERROR: Unknown profiling type '%s'. Use one of: cpu,mem,blk,trace\n", *prof)
+		os.Exit(1)
 	}
-
 	runtime.GOMAXPROCS(*cores)
-
-	mc := metcap.NewEngine(*cfg, exitCode)
+	mc, exitCode := metcap.NewEngine(config)
 	mc.Run()
-
+	codeNum := <-exitCode
 	if *prof != "" {
 		p.Stop()
 	}
-
-	os.Exit(<-exitCode)
+	os.Exit(codeNum)
 }

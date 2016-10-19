@@ -1,6 +1,6 @@
 FROM alpine:latest
 RUN mkdir -p /etc/metcap
-ENV REPORT_EVERY 5s
+ENV REPORT_EVERY 10s
 ENV TRANSPORT_TYPE channel
 ENV TRANSPORT_SIZE 1000000
 ENV REDIS_URL tcp://127.0.0.1:6379|0
@@ -13,10 +13,8 @@ ENV AMQP_URL amqp://guest:guest@127.0.0.1:5672/
 ENV AMQP_TIMEOUT 5
 ENV AMQP_TAG default
 ENV AMQP_WORKERS 1
-ENV LISTENER_ENABLED false
 ENV LISTENER_DECODERS 2
 ENV LISTENER_GRAPHITE_RULES '^STRESS\.host|||-.-.host.-.-.1.2+'
-ENV WRITER_ENABLED false
 ENV WRITER_ES_URL http://127.0.0.1:9200
 ENV WRITER_TIMEOUT 10
 ENV WRITER_INDEX metrics
@@ -24,7 +22,7 @@ ENV WRITER_DOC_TYPE raw
 ENV WRITER_CONCURRENCY 2
 ENV WRITER_BULK_MAX 5000
 ENV WRITER_BULK_WAIT 10s
-COPY bin/metcap /bin/metcap
-COPY bin/metcap-docker /bin/metcap-docker
-VOLUME /etc/metcap
-CMD [ "/bin/metcap-docker" ]
+COPY ./bin/metcap /bin/metcap
+COPY ./bin/metcap-docker /bin/metcap-docker
+VOLUME /etc/metcap /tmp
+ENTRYPOINT [ "/bin/metcap-docker" ]

@@ -41,11 +41,14 @@ func NewAMQPTransport(c *TransportConfig, listenerEnabled bool, writerEnabled bo
 		c.BufferSize = 1000
 	}
 
-	var inputConn *amqp.Connection
-	var inputChannel *amqp.Channel
-	var outputConn *amqp.Connection
-	var outputChannel *amqp.Channel
-	var err error
+	var (
+		inputConn     *amqp.Connection
+		inputChannel  *amqp.Channel
+		outputConn    *amqp.Connection
+		outputChannel *amqp.Channel
+		err           error
+	)
+
 	queue := "metcap:" + c.AMQPTag
 	exchange := "metcap:" + c.AMQPTag
 	key := "metcap:" + c.AMQPTag
@@ -171,15 +174,11 @@ func (t *AMQPTransport) Start() {
 						}
 					case <-t.ExitChan:
 						time.Sleep(1 * time.Second)
-						for len(t.Input) > 0 {
-							for len(t.Input) > 0 {
-								m := <-t.Input
-								err := t.publish(m)
-								if err != nil {
-									t.Logger.Errorf("[amqp] Failed to publish metric: %v", err)
-								}
+						for m := range t.Input {
+							err := t.publish(m)
+							if err != nil {
+								t.Logger.Errorf("[amqp] Failed to publish metric: %v", err)
 							}
-							time.Sleep(5 * time.Second)
 						}
 						return
 					}
@@ -212,13 +211,20 @@ func (t *AMQPTransport) Start() {
 						if err != nil {
 							message.Nack(false, false)
 							t.Logger.Errorf("[amqp] Failed to deserialize metric: %v", err)
-							continue
+						} else {
+							t.Output <- &metric
+							message.Ack(false)
 						}
-						t.Output <- &metric
-						message.Ack(false)
 					case <-t.ExitChan:
-						for len(t.Output) > 0 {
-							time.Sleep(1 * time.Second)
+						for message := range delivery { // drain delivery channel
+							metric, err := DeserializeMetric(string(message.Body))
+							if err != nil {
+								message.Nack(false, false)
+								t.Logger.Errorf("[amqp] Failed to deserialize metric: %v", err)
+							} else {
+								t.Output <- &metric
+								message.Ack(false)
+							}
 						}
 						return
 					}
@@ -230,18 +236,20 @@ func (t *AMQPTransport) Start() {
 	go func() {
 		goroutines := 0
 		if t.ListenerEnabled {
-			goroutines = goroutines + t.Workers
+			goroutines += t.Workers
 		}
 		if t.WriterEnabled {
-			goroutines = goroutines + t.Workers
+			goroutines += t.Workers
 		}
 
 		for {
 			switch {
 			case t.ExitFlag.Get():
+				t.OutputChannel.Close()
 				for i := 0; i < goroutines; i++ {
 					t.ExitChan <- true
 				}
+				t.Wg.Wait()
 				return
 			default:
 				time.Sleep(10 * time.Millisecond)

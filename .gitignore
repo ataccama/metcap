@@ -1,6 +1,6 @@
 *.o
 *.a
 *.so
-pkg
+tmp
 bin/metcap
 .image*
