@@ -24,17 +24,14 @@ LDFLAGS=--ldflags "-X main.Version=$(VERSION) -X main.Build=$(BUILD)"
 D_RUN=run --rm -h $(IMG_DEV) \
 --name $(IMG_DEV) \
 --net host \
+-v "$(PATH):/go/src/$(LIB_PATH)" \
 -v "$(PATH)/bin:/usr/local/bin" \
--v "$(PATH)/src:/go/src/$(LIB_PATH)" \
 -v "$(PATH)/etc:/etc/$(NAME)" \
 -v "$(PATH)/tmp:/tmp"
 
 .DEFAULT_GOAL := default
 .PHONY: default
 default: build image
-
-.PHONY: build
-build:	bin/$(NAME)
 
 .PHONY: prepare
 prepare: .image.dev
@@ -53,17 +50,24 @@ image: .image
 	@$(TOUCH) $@
 	@$(ECHO)
 
-bin/$(NAME): .image.dev $(shell find src -name '*.go') VERSION
-	### FORMATTING
+.PHONY: binary
+# binary: bin/$(NAME)-amd64
+binary: bin/$(NAME)-amd64 bin/$(NAME)-386
+ARCH=$(subst bin/$(NAME)-,,$@)
+bin/$(NAME)-amd64 bin/$(NAME)-386: $(shell find $(PATH) -name '*.go') VERSION .image.dev
+	### BUILDING BINARY
+	### Version: $(VERSION)-$(ARCH)
+	### Build:   $(BUILD)
+	$(DOCKER) $(D_RUN) -e 'GOARCH=$(ARCH)' $(IMG_DEV) go build -v $(LDFLAGS) -o /usr/local/$@ $(LIB_PATH)/cmd/metcap
+	@$(ECHO)
+
+.PHONY: lint
+lint: bi
+	### FORMATTING GO CODE
 	$(DOCKER) $(D_RUN) $(IMG_DEV) go fmt $(LIB_PATH) $(LIB_PATH)/cmd/metcap
 	@$(ECHO)
-	### VETTING
+	### VETTING GO CODE
 	$(DOCKER) $(D_RUN) $(IMG_DEV) go vet $(LIB_PATH) $(LIB_PATH)/cmd/metcap
-	@$(ECHO)
-	### BUILDING BINARY
-	### Version: $(VERSION)
-	### Build:   $(BUILD)
-	$(DOCKER) $(D_RUN) $(IMG_DEV) time go build $(LDFLAGS) -o /usr/local/$@ $(LIB_PATH)/cmd/metcap
 	@$(ECHO)
 
 .PHONY: run
@@ -72,7 +76,7 @@ run: bin/$(NAME)
 	@$(ECHO)
 
 .PHONY: check
-check: bin/$(NAME) $(shell find src -name '*.go')
+check: bin/$(NAME) $(shell find $(PATH) -name '*.go')
 	### CHECKING GIT STATUS
 	@$(GIT) diff --quiet || ( $(GIT) status && false )
 	@$(ECHO)
@@ -114,15 +118,15 @@ enter: .image.dev
 
 .PHONY: rmi
 rmi:
-	### REMOVING BUILD IMAGE
+	### REMOVING BUILT IMAGE
 	-$(DOCKER) rmi -f $(IMG_PROD)
 	-$(RM) -f .image
 	@$(ECHO)
 
 .PHONY: clean
 clean: rmi
-	### REMOVING BUILD BINARY
-	$(RM) -f bin/$(NAME)
+	### REMOVING BUILT BINARY
+	$(RM) -f bin/$(NAME)-amd64 bin/$(NAME)-386
 	@$(ECHO)
 
 .PHONY: mrproper

@@ -1,15 +1,11 @@
-FROM blufor/lightimage
-RUN apk --no-cache add \
-  go \
-  go-tools \
-  gcc \
-  musl-dev \
-  graphviz \
-  && mkdir -p /go /tmp /var/tmp /go/src/github.com/blufor/metcap
-ENV GOPATH "/go/:/usr/lib/go"
+FROM blufor/baseimage
+ENV GOPATH "/go"
+ENV GOROOT "/usr/local/go"
 ENV GOBIN "/usr/local/bin"
-ENV PWD "/go"
-RUN cd /go && go get \
+ENV PATH "/usr/local/bin:/usr/local/go/bin:/bin:/sbin:/usr/bin:/usr/sbin"
+RUN curl https://storage.googleapis.com/golang/go1.7.1.linux-amd64.tar.gz 2>/dev/null | tar zxvC /usr/local && \
+  mkdir -p /go && \
+  go get \
   github.com/BurntSushi/toml \
   github.com/RackSec/srslog \
   github.com/streadway/amqp \
@@ -17,5 +13,6 @@ RUN cd /go && go get \
   gopkg.in/olivere/elastic.v3 \
   gopkg.in/redis.v4 \
   gopkg.in/vmihailenco/msgpack.v2
-VOLUME /go/src/github.com/blufor/metcap /usr/local/bin /go/pkg /tmp
+VOLUME /go/src/github.com/blufor/metcap /usr/local/bin /tmp
+ENTRYPOINT [ ]
 CMD [ "/bin/bash", "-li" ]

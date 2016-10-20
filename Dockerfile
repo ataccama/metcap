@@ -1,5 +1,9 @@
 FROM alpine:latest
-RUN mkdir -p /etc/metcap
+RUN mkdir -p /etc/metcap && \
+    apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/ git go gcc musl-dev && \
+    go get -v github.com/blufor/metcap github.com/blufor/metcap/cmd/metcap
+    go install -v github.com/blufor/metcap/cmd/metcap && \
+
 ENV REPORT_EVERY 10s
 ENV TRANSPORT_TYPE channel
 ENV TRANSPORT_SIZE 1000000
