@@ -4,34 +4,72 @@ IMG_PROD=blufor/$(NAME)
 LIB_PATH=github.com/blufor/metcap
 DOCKERFILE=Dockerfile
 DOCKERFILE_DEV=Dockerfile.dev
-
 VERSION=$(shell cat VERSION)
-PATH=$(shell pwd -P)
+PWD=$(shell pwd -P)
 BUILD=$(shell git rev-parse --short HEAD)
 DOCKER=$(shell which docker)
 DOCKER_COMPOSE=$(shell which docker-compose)
 ECHO=$(shell which echo)
 GIT=$(shell which git)
 RM=$(shell which rm)
+CP=$(shell which cp)
+MKDIR=$(shell which mkdir)
 FIND=$(shell which find)
 XARGS=$(shell which xargs)
 WC=$(shell which wc)
 SORT=$(shell which sort)
 TOUCH=$(shell which touch)
 SUDO=$(shell which sudo)
-
+FPM=$(shell ( which fpm | grep rvm | sed s/bin/wrappers/ ) || which fpm)
 LDFLAGS=--ldflags "-X main.Version=$(VERSION) -X main.Build=$(BUILD)"
 D_RUN=run --rm -h $(IMG_DEV) \
 --name $(IMG_DEV) \
 --net host \
--v "$(PATH):/go/src/$(LIB_PATH)" \
--v "$(PATH)/bin:/usr/local/bin" \
--v "$(PATH)/etc:/etc/$(NAME)" \
--v "$(PATH)/tmp:/tmp"
+-v "$(PWD):/go/src/$(LIB_PATH)" \
+-v "$(PWD)/bin:/usr/local/bin" \
+-v "$(PWD)/etc:/etc/$(NAME)" \
+-v "$(PWD)/tmp:/tmp"
+
+ifndef ARCH
+ARCH := amd64
+endif
+
+ifeq ($(ARCH),386)
+DEB_ARCH := i386
+RPM_ARCH := i386
+else
+DEB_ARCH := amd64
+RPM_ARCH := x86_64
+endif
+
+FPM_FLAGS := -s dir -C pkg/$(ARCH) -n $(NAME) -v $(VERSION) -a $(ARCH) -m "radek@blufor.cz" --license GPL3
 
 .DEFAULT_GOAL := default
 .PHONY: default
-default: build image
+default: binary
+
+.PHONY: release
+release: lint binary deb tar rpm
+
+.PHONY: rmi
+rmi:
+	### REMOVING BUILT IMAGE
+	-$(DOCKER) rmi -f $(IMG_PROD)
+	$(RM) -f .image
+	@$(ECHO)
+
+.PHONY: clean
+clean: rmi
+	### REMOVING BUILT BINARY
+	$(RM) -f bin/$(NAME)-*
+	$(RM) -fr pkg
+	@$(ECHO)
+
+.PHONY: mrproper
+mrproper: clean rmi
+	### REMOVING WORK IMAGE
+	-$(DOCKER) rmi -f $(IMG_PROD)
+	$(RM) -f  .image.dev
 
 .PHONY: prepare
 prepare: .image.dev
@@ -41,62 +79,64 @@ prepare: .image.dev
 	@$(TOUCH) $@
 	@$(ECHO)
 
+.PHONY: lint
+lint: $(shell find $(PWD) -name '*.go')
+	### FORMATTING GO CODE
+	$(DOCKER) $(D_RUN) $(IMG_DEV) go fmt $(LIB_PATH) $(LIB_PATH)/cmd/metcap
+	$(DOCKER) $(D_RUN) $(IMG_DEV) go vet $(LIB_PATH) $(LIB_PATH)/cmd/metcap
+	@$(ECHO)
+
+.PHONY: binary
+binary: bin/$(NAME)-$(ARCH)
+bin/$(NAME)-$(ARCH): VERSION .image.dev $(shell find $(PWD) -name '*.go')
+	### BUILDING BINARY
+	### Version: $(VERSION)
+	### Build:   $(BUILD)
+	### Arch:    $(ARCH)
+	$(DOCKER) $(D_RUN) -e 'GOARCH=$(ARCH)' $(IMG_DEV) go build $(LDFLAGS) -o /usr/local/$@ $(LIB_PATH)/cmd/metcap
+	@$(ECHO)
+
+.PHONY: deb
+deb: pkg/$(NAME)-$(VERSION).$(DEB_ARCH).deb
+pkg/$(NAME)-$(VERSION).$(DEB_ARCH).deb: etc/* bin/$(NAME)-$(ARCH)
+	### BUILDING DEB PACKAGE: $@
+	$(MKDIR) -p pkg/$(ARCH)/etc/$(NAME) pkg/$(ARCH)/usr/bin
+	$(CP) etc/* pkg/$(ARCH)/etc/$(NAME)/
+	$(CP) bin/$(NAME)-$(ARCH) pkg/$(ARCH)/usr/bin/$(NAME)
+	$(FPM) $(FPM_FLAGS) -t deb --provides $(NAME) --deb-no-default-config-files --config-files /etc/$(NAME) -p $@
+	$(RM) -rf pkg/$(ARCH)
+	@$(ECHO)
+
+.PHONY: rpm
+rpm: pkg/$(NAME)-$(VERSION).$(RPM_ARCH).rpm
+pkg/$(NAME)-$(VERSION).$(RPM_ARCH).rpm: etc/* bin/$(NAME)-$(ARCH)
+	### BUILDING RPM PACKAGE: $@
+	$(MKDIR) -p pkg/$(ARCH)/etc/$(NAME) pkg/$(ARCH)/usr/bin
+	$(CP) etc/* pkg/$(ARCH)/etc/$(NAME)/
+	$(CP) bin/$(NAME)-$(ARCH) pkg/$(ARCH)/usr/bin/$(NAME)
+	$(FPM) $(FPM_FLAGS) -t rpm --provides $(NAME) --config-files /etc/$(NAME) -p $@
+	$(RM) -rf pkg/$(ARCH)
+	@$(ECHO)
+
+
+.PHONY: tar
+tar: pkg/$(NAME)-$(VERSION).$(ARCH).tar.gz
+pkg/$(NAME)-$(VERSION).$(ARCH).tar.gz: etc/* bin/$(NAME)-$(ARCH)
+	### BUILDING TAR ARCHIVE: $@
+	$(MKDIR) -p pkg/$(ARCH)/etc/$(NAME) pkg/$(ARCH)/usr/bin
+	$(CP) etc/* pkg/$(ARCH)/etc/$(NAME)/
+	$(CP) bin/$(NAME)-$(ARCH) pkg/$(ARCH)/usr/bin/$(NAME)
+	$(FPM) $(FPM_FLAGS) -t tar -p $@
+	$(RM) -rf pkg/$(ARCH)
+	@$(ECHO)
+
 .PHONY: image
 image: .image
-.image: bin/docker-$(NAME) $(DOCKERFILE)
+.image: scripts/docker-entrypoint.sh $(DOCKERFILE)
 	### BUILDING DOCKER PROD IMAGE
 	$(DOCKER) build -t $(IMG_PROD):$(VERSION) .
 	$(DOCKER) tag $(IMG_PROD):$(VERSION) $(IMG_PROD):latest
 	@$(TOUCH) $@
-	@$(ECHO)
-
-.PHONY: binary
-# binary: bin/$(NAME)-amd64
-binary: bin/$(NAME)-amd64 bin/$(NAME)-386
-ARCH=$(subst bin/$(NAME)-,,$@)
-bin/$(NAME)-amd64 bin/$(NAME)-386: $(shell find $(PATH) -name '*.go') VERSION .image.dev
-	### BUILDING BINARY
-	### Version: $(VERSION)-$(ARCH)
-	### Build:   $(BUILD)
-	$(DOCKER) $(D_RUN) -e 'GOARCH=$(ARCH)' $(IMG_DEV) go build -v $(LDFLAGS) -o /usr/local/$@ $(LIB_PATH)/cmd/metcap
-	@$(ECHO)
-
-.PHONY: lint
-lint: bi
-	### FORMATTING GO CODE
-	$(DOCKER) $(D_RUN) $(IMG_DEV) go fmt $(LIB_PATH) $(LIB_PATH)/cmd/metcap
-	@$(ECHO)
-	### VETTING GO CODE
-	$(DOCKER) $(D_RUN) $(IMG_DEV) go vet $(LIB_PATH) $(LIB_PATH)/cmd/metcap
-	@$(ECHO)
-
-.PHONY: run
-run: bin/$(NAME)
-	-$(DOCKER) $(D_RUN) -it $(IMG_DEV) $(NAME)
-	@$(ECHO)
-
-.PHONY: check
-check: bin/$(NAME) $(shell find $(PATH) -name '*.go')
-	### CHECKING GIT STATUS
-	@$(GIT) diff --quiet || ( $(GIT) status && false )
-	@$(ECHO)
-	### LINE REPORT
-	@$(FIND) $(PATH) -name '*go' | $(XARGS) $(WC) -l | $(SORT) -n
-
-.PHONY: svc_start svc_stop svc_rm
-svc_start:
-	cd docker
-	$(DOCKER_COMPOSE) create es redis rabbitmq
-	@$(ECHO)
-	$(DOCKER_COMPOSE) start es redis rabbitmq
-	@$(ECHO)
-
-svc_stop:
-	$(DOCKER_COMPOSE) stop es redis rabbitmq
-	@$(ECHO)
-
-svc_rm: svc_stop
-	$(DOCKER_COMPOSE) rm -f es redis rabbitmq
 	@$(ECHO)
 
 .PHONY: push
@@ -116,21 +156,25 @@ enter: .image.dev
 	### ENTERING CONTAINER
 	$(DOCKER) $(D_RUN) -it $(IMG_DEV)
 
-.PHONY: rmi
-rmi:
-	### REMOVING BUILT IMAGE
-	-$(DOCKER) rmi -f $(IMG_PROD)
-	-$(RM) -f .image
+.PHONY: check
+check: bin/$(NAME) $(shell find $(PWD) -name '*.go')
+	### CHECKING GIT STATUS
+	@$(GIT) diff --quiet || ( $(GIT) status && false )
+	@$(ECHO)
+	### LINE REPORT
+	@$(FIND) $(PWD) -name '*go' | $(XARGS) $(WC) -l | $(SORT) -n
+
+.PHONY: svc_start svc_stop svc_rm
+svc_start:
+	$(DOCKER_COMPOSE) create es redis rabbitmq
+	@$(ECHO)
+	$(DOCKER_COMPOSE) start es redis rabbitmq
 	@$(ECHO)
 
-.PHONY: clean
-clean: rmi
-	### REMOVING BUILT BINARY
-	$(RM) -f bin/$(NAME)-amd64 bin/$(NAME)-386
+svc_stop:
+	$(DOCKER_COMPOSE) stop es redis rabbitmq
 	@$(ECHO)
 
-.PHONY: mrproper
-mrproper: clean rmi
-	### REMOVING WORK IMAGE
-	-$(DOCKER) rmi -f $(IMG_PROD)
-	$(RM) -f  .image.dev
+svc_rm: svc_stop
+	$(DOCKER_COMPOSE) rm -f es redis rabbitmq
+	@$(ECHO)

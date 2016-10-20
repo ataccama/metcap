@@ -28,6 +28,6 @@ ENV WRITER_DOC_TYPE raw
 ENV WRITER_CONCURRENCY 2
 ENV WRITER_BULK_MAX 5000
 ENV WRITER_BULK_WAIT 10s
-COPY ./bin/docker-metcap /bin/docker-metcap
+COPY ./scripts/docker-entrypoint.sh /bin/docker-entrypoint.sh
 VOLUME /etc/metcap /tmp
-ENTRYPOINT [ "/bin/docker-metcap" ]
+ENTRYPOINT [ "/bin/docker-entrypoint.sh" ]

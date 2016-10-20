@@ -1,6 +1,7 @@
 *.o
 *.a
 *.so
-tmp
-bin/metcap
+tmp/
+pkg/
+bin/
 .image*
