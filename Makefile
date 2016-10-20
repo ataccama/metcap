@@ -43,7 +43,7 @@ prepare: .image.dev
 
 .PHONY: image
 image: .image
-.image: bin/$(NAME) bin/$(NAME)-docker $(DOCKERFILE)
+.image: bin/docker-$(NAME) $(DOCKERFILE)
 	### BUILDING DOCKER PROD IMAGE
 	$(DOCKER) build -t $(IMG_PROD):$(VERSION) .
 	$(DOCKER) tag $(IMG_PROD):$(VERSION) $(IMG_PROD):latest

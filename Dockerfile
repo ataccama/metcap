@@ -1,9 +1,11 @@
 FROM alpine:latest
-RUN mkdir -p /etc/metcap && \
+RUN mkdir -p /etc/metcap /go && \
     apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/ git go gcc musl-dev && \
-    go get -v github.com/blufor/metcap github.com/blufor/metcap/cmd/metcap
-    go install -v github.com/blufor/metcap/cmd/metcap && \
-
+    export GOPATH=/go && \
+    go get -v github.com/blufor/metcap github.com/blufor/metcap/cmd/metcap && \
+    go build -o /bin/metcap github.com/blufor/metcap/cmd/metcap && \
+    apk del git go gcc musl-dev && \
+    rm -rf /tmp/* /go /usr/lib/go /var/log
 ENV REPORT_EVERY 10s
 ENV TRANSPORT_TYPE channel
 ENV TRANSPORT_SIZE 1000000
@@ -26,7 +28,6 @@ ENV WRITER_DOC_TYPE raw
 ENV WRITER_CONCURRENCY 2
 ENV WRITER_BULK_MAX 5000
 ENV WRITER_BULK_WAIT 10s
-COPY ./bin/metcap /bin/metcap
-COPY ./bin/metcap-docker /bin/metcap-docker
+COPY ./bin/docker-metcap /bin/docker-metcap
 VOLUME /etc/metcap /tmp
-ENTRYPOINT [ "/bin/metcap-docker" ]
+ENTRYPOINT [ "/bin/docker-metcap" ]
