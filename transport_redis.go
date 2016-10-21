@@ -92,14 +92,14 @@ func (t *RedisTransport) Start() {
 				case m := <-t.Input:
 					err := t.Redis.RPush(t.Queue, m.Serialize()).Err()
 					if err != nil {
-						t.Logger.Errorf("[redis] Failed to push metric: %v - %v", err, err.Error())
+						t.Logger.Error("[redis] Failed to push metric: %v - %v", err, err.Error())
 						continue
 					}
 				case <-t.ExitChan:
 					for m := range t.Input {
 						err := t.Redis.RPush(t.Queue, m.Serialize()).Err()
 						if err != nil {
-							t.Logger.Errorf("[redis] Failed to push metric: %v - %v", err, err.Error())
+							t.Logger.Error("[redis] Failed to push metric: %v - %v", err, err.Error())
 							continue
 						}
 					}
@@ -120,14 +120,14 @@ func (t *RedisTransport) Start() {
 				}
 				m, err := t.Redis.BLPop(time.Duration(t.Wait)*time.Second, t.Queue).Result()
 				if err != nil {
-					t.Logger.Errorf("[redis] Failed to get metric: %v - %v", err, err.Error())
+					t.Logger.Error("[redis] Failed to get metric: %v - %v", err, err.Error())
 				}
 				if m != nil {
 					metric, err := DeserializeMetric(m[1])
 					if err == nil {
 						t.Output <- &metric
 					} else {
-						t.Logger.Errorf("[redis] failed to DeserializeMetric(): %v - %v", err, err.Error())
+						t.Logger.Error("[redis] failed to DeserializeMetric(): %v - %v", err, err.Error())
 					}
 				}
 			}

@@ -170,14 +170,14 @@ func (t *AMQPTransport) Start() {
 					case m := <-t.Input:
 						err := t.publish(m)
 						if err != nil {
-							t.Logger.Errorf("[amqp] Failed to publish metric: %v", err)
+							t.Logger.Error("[amqp] Failed to publish metric: %v", err)
 						}
 					case <-t.ExitChan:
 						time.Sleep(1 * time.Second)
 						for m := range t.Input {
 							err := t.publish(m)
 							if err != nil {
-								t.Logger.Errorf("[amqp] Failed to publish metric: %v", err)
+								t.Logger.Error("[amqp] Failed to publish metric: %v", err)
 							}
 						}
 						return
@@ -202,7 +202,7 @@ func (t *AMQPTransport) Start() {
 					nil,   // arguments
 				)
 				if err != nil {
-					t.Logger.Errorf("[amqp] Failed to setup delivery channel: %v", err)
+					t.Logger.Error("[amqp] Failed to setup delivery channel: %v", err)
 				}
 				for {
 					select {
@@ -210,7 +210,7 @@ func (t *AMQPTransport) Start() {
 						metric, err := DeserializeMetric(string(message.Body))
 						if err != nil {
 							message.Nack(false, false)
-							t.Logger.Errorf("[amqp] Failed to deserialize metric: %v", err)
+							t.Logger.Error("[amqp] Failed to deserialize metric: %v", err)
 						} else {
 							t.Output <- &metric
 							message.Ack(false)
@@ -220,7 +220,7 @@ func (t *AMQPTransport) Start() {
 							metric, err := DeserializeMetric(string(message.Body))
 							if err != nil {
 								message.Nack(false, false)
-								t.Logger.Errorf("[amqp] Failed to deserialize metric: %v", err)
+								t.Logger.Error("[amqp] Failed to deserialize metric: %v", err)
 							} else {
 								t.Output <- &metric
 								message.Ack(false)

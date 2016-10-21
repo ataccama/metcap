@@ -54,7 +54,7 @@ func (e *Engine) Run() {
 	}
 
 	// initialize transport
-	logger.Infof("[engine] Using '%s' transport", e.Config.Transport.Type)
+	logger.Info("[engine] Using '%s' transport", e.Config.Transport.Type)
 	var err error
 	switch e.Config.Transport.Type {
 	case "channel":
@@ -69,12 +69,12 @@ func (e *Engine) Run() {
 	case "amqp":
 		transport, err = NewAMQPTransport(&e.Config.Transport, listenerEnabled, writerEnabled, exitFlag, logger)
 	default:
-		logger.Alertf("[engine] Transport '%s' not implemented", e.Config.Transport.Type)
+		logger.Alert("[engine] Transport '%s' not implemented", e.Config.Transport.Type)
 		e.ExitCode <- 1
 		return
 	}
 	if err != nil {
-		logger.Alertf("[engine] Failed to set-up transport: %v", err)
+		logger.Alert("[engine] Failed to set-up transport: %v", err)
 		e.ExitCode <- 1
 		return
 	}
@@ -96,7 +96,7 @@ func (e *Engine) Run() {
 		for lName, cfg := range e.Config.Listener {
 			listener, err := NewListener(lName, cfg, transport, e.Workers, logger, exitFlag)
 			if err != nil {
-				logger.Alertf("[engine] Failed to initialize listener '%s'", lName)
+				logger.Alert("[engine] Failed to initialize listener '%s'", lName)
 				continue
 			}
 			listeners = append(listeners, &listener)
@@ -189,7 +189,7 @@ func (e *Engine) Run() {
 			// do
 
 		default:
-			logger.Errorf("[engine] Unknown signal: %v", sig)
+			logger.Error("[engine] Unknown signal: %v", sig)
 		}
 	}
 }

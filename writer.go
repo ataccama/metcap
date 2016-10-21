@@ -21,10 +21,10 @@ type Writer struct {
 func NewWriter(c *WriterConfig, t Transport, module_wg *sync.WaitGroup, logger *Logger, exitFlag *Flag) (Writer, error) {
 	logger.Info("[writer] Initializing module")
 
-	logger.Debugf("[writer] Connecting to ElasticSearch %v", c.URLs)
+	logger.Debug("[writer] Connecting to ElasticSearch %v", c.URLs)
 	es, err := elastic.NewClient(elastic.SetURL(c.URLs...))
 	if err != nil {
-		logger.Alertf("[writer] Can't connect to ElasticSearch: %v", err)
+		logger.Alert("[writer] Can't connect to ElasticSearch: %v", err)
 		return Writer{}, err
 	}
 	logger.Debug("[writer] Successfully connected to ElasticSearch")
@@ -33,23 +33,23 @@ func NewWriter(c *WriterConfig, t Transport, module_wg *sync.WaitGroup, logger *
 
 	tmplExists, err := es.IndexTemplateExists(c.Index).Do()
 	if err != nil {
-		logger.Alertf("[writer] Error checking index mapping template existence: %v", err)
+		logger.Alert("[writer] Error checking index mapping template existence: %v", err)
 		return Writer{}, err
 	}
 	if !tmplExists {
-		logger.Infof("[writer] Index mapping template doesn't exits, creating '%s'", c.Index)
+		logger.Info("[writer] Index mapping template doesn't exits, creating '%s'", c.Index)
 		tmpl := es.IndexPutTemplate(c.Index).
 			Create(true).
 			BodyString(ESTemplate).
 			Order(0)
 		err := tmpl.Validate()
 		if err != nil {
-			logger.Alertf("[writer] Failed to validate the index mapping template: %v", err)
+			logger.Alert("[writer] Failed to validate the index mapping template: %v", err)
 			return Writer{}, err
 		}
 		res, err := tmpl.Do()
 		if err != nil {
-			logger.Alertf("[writer] Failed to put the index mapping template: %v", err)
+			logger.Alert("[writer] Failed to put the index mapping template: %v", err)
 			return Writer{}, err
 		}
 		if !res.Acknowledged {
@@ -91,7 +91,7 @@ func (w *Writer) Start() {
 		Do()
 
 	if err != nil {
-		w.Logger.Alertf("[writer] Failed to setup bulk-processor: %v", err)
+		w.Logger.Alert("[writer] Failed to setup bulk-processor: %v", err)
 		return
 	}
 
@@ -173,7 +173,7 @@ func (w *Writer) add(m *Metric) {
 
 func (w *Writer) hookBeforeCommit(id int64, reqs []elastic.BulkableRequest) {
 	w.Stats.Committed.Increment(len(reqs))
-	w.Logger.Debugf("[writer] Committing %d metrics", len(reqs))
+	w.Logger.Debug("[writer] Committing %d metrics", len(reqs))
 	w.Stats.Running.Increment(1)
 	w.Stats.Queued.Reset()
 }
@@ -182,19 +182,19 @@ func (w *Writer) hookAfterCommit(id int64, reqs []elastic.BulkableRequest, res *
 	w.Stats.Running.Decrement(1)
 	w.Stats.Succeeded.Increment(len(res.Succeeded()))
 	w.Stats.Duration.Add(time.Duration(res.Took) * time.Millisecond)
-	w.Logger.Debugf("[writer] Successfully indexed %d metrics", len(res.Succeeded()))
+	w.Logger.Debug("[writer] Successfully indexed %d metrics", len(res.Succeeded()))
 	if len(res.Failed()) > 0 {
 		w.Stats.Failed.Increment(len(res.Failed()))
-		w.Logger.Errorf("[writer] Failed to index %d metrics", len(res.Failed()))
+		w.Logger.Error("[writer] Failed to index %d metrics", len(res.Failed()))
 	}
 	if err != nil {
-		w.Logger.Errorf("[writer] %v", err.Error())
+		w.Logger.Error("[writer] %v", err.Error())
 	}
 	w.Stats.Flushed.Increment(1)
 }
 
 func (w *Writer) LogReport() {
-	w.Logger.Infof("[writer] flushes: %d/%d/%.3f (running/total/rate_per_m), metrics: %d/%d/%d/%.3f (committed/succeeded/failed/rate_per_sec), duration: %s/%s (avg/max)",
+	w.Logger.Info("[writer] flushes: %d/%d/%.3f (running/total/rate_per_m), metrics: %d/%d/%d/%.3f (committed/succeeded/failed/rate_per_sec), duration: %s/%s (avg/max)",
 		w.Stats.Running.Get(),
 		w.Stats.Flushed.Total(),
 		w.Stats.Flushed.Rate(time.Minute),

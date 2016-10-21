@@ -43,5 +43,5 @@ func (t *ChannelTransport) OutputChanLen() int {
 }
 
 func (t *ChannelTransport) LogReport() {
-	t.Logger.Infof("[transport] channel: %d/%d (length/capacity)", len(t.Chan), t.Size)
+	t.Logger.Info("[transport] channel: %d/%d (length/capacity)", len(t.Chan), t.Size)
 }
