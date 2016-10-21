@@ -6,6 +6,7 @@
 
 **Implemented enhancements:**
 
+- Create init scripts for DEB & RPM packages [\#31](https://github.com/blufor/metcap/issues/31)
 - build packages with releases [\#28](https://github.com/blufor/metcap/issues/28)
 - implement pprof [\#26](https://github.com/blufor/metcap/issues/26)
 - Implement logger and TransportError type for Redis Transport [\#19](https://github.com/blufor/metcap/issues/19)

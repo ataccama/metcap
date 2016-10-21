@@ -99,7 +99,7 @@ bin/$(NAME)-$(ARCH): VERSION .image.dev $(shell find $(PWD) -name '*.go')
 
 .PHONY: deb
 deb: pkg/$(NAME)-$(VERSION).$(DEB_ARCH).deb
-pkg/$(NAME)-$(VERSION).$(DEB_ARCH).deb: etc/* bin/$(NAME)-$(ARCH)
+pkg/$(NAME)-$(VERSION).$(DEB_ARCH).deb: etc/* bin/$(NAME)-$(ARCH) scripts/deb-init.sh scripts/after-install.sh
 	### BUILDING DEB PACKAGE: $@
 	$(RM) -f $@
 	$(MKDIR) -p pkg/$(ARCH)/etc/$(NAME) pkg/$(ARCH)/etc/default pkg/$(ARCH)/etc/init.d pkg/$(ARCH)/usr/bin
@@ -113,7 +113,7 @@ pkg/$(NAME)-$(VERSION).$(DEB_ARCH).deb: etc/* bin/$(NAME)-$(ARCH)
 
 .PHONY: rpm
 rpm: pkg/$(NAME)-$(VERSION).$(RPM_ARCH).rpm
-pkg/$(NAME)-$(VERSION).$(RPM_ARCH).rpm: etc/* bin/$(NAME)-$(ARCH)
+pkg/$(NAME)-$(VERSION).$(RPM_ARCH).rpm: etc/* bin/$(NAME)-$(ARCH) scripts/rpm-init.sh scripts/after-install.sh
 	### BUILDING RPM PACKAGE: $@
 	$(RM) -f $@
 	$(MKDIR) -p pkg/$(ARCH)/etc/$(NAME) pkg/$(ARCH)/etc/sysconfig pkg/$(ARCH)/etc/init.d pkg/$(ARCH)/usr/bin

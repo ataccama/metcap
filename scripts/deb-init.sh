@@ -30,9 +30,9 @@ SCRIPTNAME=/etc/init.d/$NAME
 
 do_start()
 {
-	start-stop-daemon --start --chuid $USER --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
+	start-stop-daemon --start --chuid $USER --quiet --pidfile $PIDFILE -m --exec $DAEMON --test > /dev/null \
 		|| return 1
-	start-stop-daemon --start --chuid $USER --quiet --pidfile $PIDFILE --exec $DAEMON --backgroud -- \
+	start-stop-daemon --start --chuid $USER --quiet --pidfile $PIDFILE -m --exec $DAEMON --background -- \
 		$DAEMON_ARGS \
 		|| return 2
 }
