@@ -5,9 +5,19 @@
 
 **Implemented enhancements:**
 
+- build packages with releases [\#28](https://github.com/blufor/metcap/issues/28)
+- implement pprof [\#26](https://github.com/blufor/metcap/issues/26)
 - Implement logger and TransportError type for Redis Transport [\#19](https://github.com/blufor/metcap/issues/19)
 - Modularize line parser [\#17](https://github.com/blufor/metcap/issues/17)
 - AMQP transport [\#15](https://github.com/blufor/metcap/issues/15)
+
+**Fixed bugs:**
+
+- Fix Syslog logging [\#25](https://github.com/blufor/metcap/issues/25)
+
+**Closed issues:**
+
+- move documentation to wiki [\#27](https://github.com/blufor/metcap/issues/27)
 
 ## [v0.6](https://github.com/blufor/metcap/tree/v0.6) (2016-09-02)
 [Full Changelog](https://github.com/blufor/metcap/compare/v0.5...v0.6)
