@@ -1,7 +1,8 @@
 # Change Log
 
-## [0.7](https://github.com/blufor/metcap/tree/0.7) (2016-10-21)
-[Full Changelog](https://github.com/blufor/metcap/compare/v0.6...0.7)
+## [Unreleased](https://github.com/blufor/metcap/tree/HEAD)
+
+[Full Changelog](https://github.com/blufor/metcap/compare/v0.6...HEAD)
 
 **Implemented enhancements:**
 
@@ -14,6 +15,7 @@
 **Fixed bugs:**
 
 - Fix Syslog logging [\#25](https://github.com/blufor/metcap/issues/25)
+- Fix logger timestamp [\#18](https://github.com/blufor/metcap/issues/18)
 
 **Closed issues:**
 

@@ -14,6 +14,7 @@ GIT=$(shell which git)
 RM=$(shell which rm)
 CP=$(shell which cp)
 MKDIR=$(shell which mkdir)
+CHOWN=$(shell which chown)
 FIND=$(shell which find)
 XARGS=$(shell which xargs)
 WC=$(shell which wc)
@@ -42,7 +43,7 @@ DEB_ARCH := amd64
 RPM_ARCH := x86_64
 endif
 
-FPM_FLAGS := -s dir -C pkg/$(ARCH) -n $(NAME) -v $(VERSION) -a $(ARCH) -m "radek@blufor.cz" --license GPL3
+FPM_FLAGS := --log error -s dir -C pkg/$(ARCH) -n $(NAME) -v $(VERSION) -a $(ARCH) -m "radek@blufor.cz" --license GPL3
 
 .DEFAULT_GOAL := default
 .PHONY: default
@@ -100,10 +101,13 @@ bin/$(NAME)-$(ARCH): VERSION .image.dev $(shell find $(PWD) -name '*.go')
 deb: pkg/$(NAME)-$(VERSION).$(DEB_ARCH).deb
 pkg/$(NAME)-$(VERSION).$(DEB_ARCH).deb: etc/* bin/$(NAME)-$(ARCH)
 	### BUILDING DEB PACKAGE: $@
-	$(MKDIR) -p pkg/$(ARCH)/etc/$(NAME) pkg/$(ARCH)/usr/bin
+	$(RM) -f $@
+	$(MKDIR) -p pkg/$(ARCH)/etc/$(NAME) pkg/$(ARCH)/etc/default pkg/$(ARCH)/etc/init.d pkg/$(ARCH)/usr/bin
 	$(CP) etc/* pkg/$(ARCH)/etc/$(NAME)/
+	$(CP) scripts/deb-init.sh pkg/$(ARCH)/etc/init.d/$(NAME)
 	$(CP) bin/$(NAME)-$(ARCH) pkg/$(ARCH)/usr/bin/$(NAME)
-	$(FPM) $(FPM_FLAGS) -t deb --provides $(NAME) --deb-no-default-config-files --config-files /etc/$(NAME) -p $@
+	$(ECHO) 'DAEMON_ARGS=""' > pkg/$(ARCH)/etc/default/$(NAME)
+	$(FPM) $(FPM_FLAGS) -t deb --deb-user root --deb-group root --provides $(NAME) --after-install scripts/after-install.sh -p $@
 	$(RM) -rf pkg/$(ARCH)
 	@$(ECHO)
 
@@ -111,10 +115,13 @@ pkg/$(NAME)-$(VERSION).$(DEB_ARCH).deb: etc/* bin/$(NAME)-$(ARCH)
 rpm: pkg/$(NAME)-$(VERSION).$(RPM_ARCH).rpm
 pkg/$(NAME)-$(VERSION).$(RPM_ARCH).rpm: etc/* bin/$(NAME)-$(ARCH)
 	### BUILDING RPM PACKAGE: $@
-	$(MKDIR) -p pkg/$(ARCH)/etc/$(NAME) pkg/$(ARCH)/usr/bin
+	$(RM) -f $@
+	$(MKDIR) -p pkg/$(ARCH)/etc/$(NAME) pkg/$(ARCH)/etc/sysconfig pkg/$(ARCH)/etc/init.d pkg/$(ARCH)/usr/bin
 	$(CP) etc/* pkg/$(ARCH)/etc/$(NAME)/
+	$(CP) scripts/rpm-init.sh pkg/$(ARCH)/etc/init.d/$(NAME)
 	$(CP) bin/$(NAME)-$(ARCH) pkg/$(ARCH)/usr/bin/$(NAME)
-	$(FPM) $(FPM_FLAGS) -t rpm --provides $(NAME) --config-files /etc/$(NAME) -p $@
+	$(ECHO) 'METCAP_ARGS=""' > pkg/$(ARCH)/etc/sysconfig/$(NAME)
+	$(FPM) $(FPM_FLAGS) -t rpm --rpm-user root --rpm-group root --provides /usr/bin/$(NAME) --after-install scripts/after-install.sh -p $@
 	$(RM) -rf pkg/$(ARCH)
 	@$(ECHO)
 
@@ -123,6 +130,7 @@ pkg/$(NAME)-$(VERSION).$(RPM_ARCH).rpm: etc/* bin/$(NAME)-$(ARCH)
 tar: pkg/$(NAME)-$(VERSION).$(ARCH).tar.gz
 pkg/$(NAME)-$(VERSION).$(ARCH).tar.gz: etc/* bin/$(NAME)-$(ARCH)
 	### BUILDING TAR ARCHIVE: $@
+	$(RM) -f $@
 	$(MKDIR) -p pkg/$(ARCH)/etc/$(NAME) pkg/$(ARCH)/usr/bin
 	$(CP) etc/* pkg/$(ARCH)/etc/$(NAME)/
 	$(CP) bin/$(NAME)-$(ARCH) pkg/$(ARCH)/usr/bin/$(NAME)

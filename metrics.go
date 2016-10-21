@@ -23,7 +23,7 @@ type Metrics []Metric
 func (m *Metric) JSON() []byte {
 	out, err := json.Marshal(m)
 	if err != nil {
-		panic(err)
+		panic(err) // REFACTOR: throw error and do checking
 	}
 	return out
 }
@@ -31,7 +31,7 @@ func (m *Metric) JSON() []byte {
 func (m *Metric) Serialize() []byte {
 	out, err := msgpack.Marshal(m)
 	if err != nil {
-		panic(err)
+		panic(err) // REFACTOR: throw error and do checking
 	}
 	return out
 }

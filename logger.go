@@ -2,9 +2,9 @@ package metcap
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"time"
-	"log"
 
 	syslog "github.com/RackSec/srslog"
 )
@@ -41,7 +41,7 @@ func NewLogger(syslog_enabled *bool, debugFlag *Flag) *Logger {
 		debug:     debugFlag,
 		syslog:    *syslog_enabled,
 		syslogger: syslogger,
-		logger:		 log.New(os.Stdout, "", 0),
+		logger:    log.New(os.Stdout, "", 0),
 	}
 }
 
@@ -55,7 +55,9 @@ func (l *Logger) Run() error {
 		case line := <-l.chanInfo:
 			l.log(line, syslog.LOG_INFO)
 		case line := <-l.chanDebug:
-			l.log(line, syslog.LOG_DEBUG)
+			if l.debug.Get() {
+				l.log(line, syslog.LOG_DEBUG)
+			}
 		}
 	}
 }
@@ -63,7 +65,7 @@ func (l *Logger) Run() error {
 func (l *Logger) log(message string, severity syslog.Priority) {
 	var txtSeverity string
 	if l.syslog {
-		l.syslogger.WriteWithPriority(severity, []byte(message + "\n"))
+		l.syslogger.WriteWithPriority(severity, []byte(message+"\n"))
 	} else {
 		switch severity {
 		case syslog.LOG_DEBUG:
@@ -75,15 +77,11 @@ func (l *Logger) log(message string, severity syslog.Priority) {
 		case syslog.LOG_ALERT:
 			txtSeverity = " ALERT: "
 		}
-		l.logger.Print(time.Now().Format(time.RFC3339) + txtSeverity + message + "\n")
+		l.logger.Print(time.Now().String() + txtSeverity + message + "\n")
 	}
 }
 
-func (l *Logger) Debug(f string, v ...interface{}) {
-	if l.debug.Get() {
-		l.chanDebug <- fmt.Sprintf(f, v...)
-	}
-}
+func (l *Logger) Debug(f string, v ...interface{}) { l.chanDebug <- fmt.Sprintf(f, v...) }
 func (l *Logger) Info(f string, v ...interface{})  { l.chanInfo <- fmt.Sprintf(f, v...) }
 func (l *Logger) Error(f string, v ...interface{}) { l.chanErr <- fmt.Sprintf(f, v...) }
 func (l *Logger) Alert(f string, v ...interface{}) { l.chanAlert <- fmt.Sprintf(f, v...) }
